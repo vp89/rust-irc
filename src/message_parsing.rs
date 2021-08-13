@@ -3,8 +3,13 @@ use std::{str::FromStr};
 #[derive(Debug)]
 pub struct ClientToServerMessage {
     pub source: Option<String>,
-    pub command: String,
+    pub command: ClientToServerCommand,
     pub params: String
+}
+
+#[derive(Debug)]
+pub enum ClientToServerCommand {
+    Nick,
 }
 
 #[derive(Debug)]
@@ -44,9 +49,17 @@ impl FromStr for ClientToServerMessage {
             None
         };
 
+        // TODO case sensitivity?
+        let raw_command = words.next().unwrap(); // TODO remove unwrap
+
+        let command = match raw_command {
+            "NICK" => ClientToServerCommand::Nick,
+            _ => panic!("ARGH") // TODO remove
+        };
+
         let message = ClientToServerMessage {
             source,
-            command: "".to_owned(),
+            command,
             params: "".to_owned()
         };
 
@@ -68,7 +81,7 @@ impl std::string::ToString for ServerToClientMessage {
 #[test]
 fn client_to_server_has_prefix_is_parsed() {
     let expected_source = "FOO";
-    let raw_str = &format!(":{} BLA", expected_source);
+    let raw_str = &format!(":{} NICK", expected_source);
     let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid prefix");
     let actual_source = message.source.expect("Failed to parse source");
     assert_eq!(expected_source, actual_source);
