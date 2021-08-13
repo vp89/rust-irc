@@ -1,8 +1,8 @@
-pub mod messages;
+pub mod message_parsing;
 
 use std::{io::{self, Read, Write}, net::{TcpListener, TcpStream}, str::FromStr, thread};
 
-use crate::messages::IrcMessage;
+use crate::message_parsing::ClientToServerMessage;
 
 fn main() -> io::Result<()> {
     println!("STARTING SERVER ON 127.0.0.1:6667");
@@ -48,7 +48,7 @@ fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
         println!("SPLIT INTO {} MESSAGES", raw_messages.clone().count());
 
         for raw_message in raw_messages {
-            let message = IrcMessage::from_str(raw_message).expect("FOO"); // TODO
+            let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
 
             // if message.starts_with("NICK") {
             if message.command == "NICK" {
