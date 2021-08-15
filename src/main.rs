@@ -2,7 +2,7 @@ pub mod message_parsing;
 
 use std::{io::{self, Read, Write}, net::{TcpListener, TcpStream}, str::FromStr, thread};
 
-use crate::message_parsing::{ClientToServerMessage,ClientToServerCommand};
+use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, NumericReply, RplWelcome, ServerReplyMessage, ServerToClientMessage, Source};
 
 fn main() -> io::Result<()> {
     println!("STARTING SERVER ON 127.0.0.1:6667");
@@ -55,8 +55,35 @@ fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
                     println!("MESSAGE {:?}", message);
 
                     let nick = message.params;
+
+                    let rpl_welcome_message = ServerReplyMessage {
+                        source: "localhost".to_owned(),
+                        target: nick.clone(),
+                        reply_number: 101,
+                        reply: NumericReply::RplWelcome(RplWelcome {
+                            welcome_message: "WELCOME TO THE SERVER".to_owned(),
+                            nick: nick.clone()
+                        })
+                    };
+
                     let rplmsgs = format!(
-                        ":localhost 001 {nick} :WELCOME TO THE SERVER {nick}\r\n:localhost 002 {nick} :Your host is localhost, running version 0.0.1\r\n:localhost 003 {nick} :This server was created now\r\n:localhost 004 {nick} localhost 0.0.1 r i\r\n:localhost 005 {nick} CHANNELLEN=32 :are supported by this server\r\n:localhost 251 {nick} :There are 100 users and 20 invisible on 1 servers\r\n:localhost 252 {nick} 1337 :IRC Operators online\r\n:localhost 253 {nick} 7 :unknown connection(s)\r\n:localhost 254 {nick} 9999 :channels formed\r\n:localhost 255 {nick} :I have 900 clients and 1 servers\r\n:localhost 265 {nick} 845 1000 :Current local users 845, max 1000\r\n:localhost 266 {nick} 9823 23455 :Current global users 9823, max 23455\r\n:localhost 250 {nick} :Highest connection count: 9998 (9000 clients) (99999 connections received)\r\n:localhost 375 {nick} :- localhost Message of the Day - \r\n:localhost 372 {nick} :- Foobar\r\n:localhost 376 {nick} :End of /MOTD command.",
+                        "{}
+                        :localhost 002 {nick} :Your host is localhost, running version 0.0.1\r\n
+                        :localhost 003 {nick} :This server was created now\r\n
+                        :localhost 004 {nick} localhost 0.0.1 r i\r\n
+                        :localhost 005 {nick} CHANNELLEN=32 :are supported by this server\r\n
+                        :localhost 251 {nick} :There are 100 users and 20 invisible on 1 servers\r\n
+                        :localhost 252 {nick} 1337 :IRC Operators online\r\n
+                        :localhost 253 {nick} 7 :unknown connection(s)\r\n
+                        :localhost 254 {nick} 9999 :channels formed\r\n
+                        :localhost 255 {nick} :I have 900 clients and 1 servers\r\n
+                        :localhost 265 {nick} 845 1000 :Current local users 845, max 1000\r\n
+                        :localhost 266 {nick} 9823 23455 :Current global users 9823, max 23455\r\n
+                        :localhost 250 {nick} :Highest connection count: 9998 (9000 clients) (99999 connections received)\r\n
+                        :localhost 375 {nick} :- localhost Message of the Day - \r\n
+                        :localhost 372 {nick} :- Foobar\r\n
+                        :localhost 376 {nick} :End of /MOTD command.",
+                        rpl_welcome_message.to_string(),
                         nick = nick);
 
                     println!("SENDING {}", rplmsgs);

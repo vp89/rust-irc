@@ -19,6 +19,25 @@ pub struct ServerToClientMessage {
 }
 
 #[derive(Debug)]
+pub struct ServerReplyMessage {
+    pub source: String,
+    pub target: String,
+    pub reply_number: u32, // TODO this sucks
+    pub reply: NumericReply
+}
+
+#[derive(Debug)]
+pub enum NumericReply {
+    RplWelcome(RplWelcome)
+}
+
+#[derive(Debug)]
+pub struct RplWelcome {
+    pub welcome_message: String,
+    pub nick: String
+}
+
+#[derive(Debug)]
 pub enum Source {
     Server(String),
     Client(ClientSource)
@@ -79,6 +98,30 @@ impl ToString for ServerToClientMessage {
     }
 }
 
+impl ToString for ServerReplyMessage {
+    fn to_string(&self) -> String {
+        format!(
+            ":{} {} {} {}",
+            self.source,
+            self.reply_number,
+            self.target,
+            self.reply.to_string())
+    }
+}
+
+impl ToString for NumericReply {
+    fn to_string(&self) -> String {
+        match &self {
+            NumericReply::RplWelcome(r) => {
+                format!(
+                    ":{} {}",
+                    r.welcome_message,
+                    r.nick)
+            }
+        }
+    }
+}
+
 #[test]
 fn client_to_server_has_prefix_is_parsed() {
     let expected_source = "FOO";
@@ -125,5 +168,22 @@ fn server_to_client_from_client_is_valid() {
     };
     let actual = message.to_string();
     let expected = format!(":{}!{}@{}", nick, user, host);
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_welcome_prints_correctly() {
+    let reply = ServerReplyMessage {
+        source: "localhost".to_owned(),
+        target: "JIM".to_owned(),
+        reply_number: 101,
+        reply: NumericReply::RplWelcome(RplWelcome {
+            welcome_message: "HELLO WORLD".to_owned(),
+            nick: "JIM".to_owned()
+        })
+    };
+
+    let actual = reply.to_string();
+    let expected = ":localhost 101 JIM :HELLO WORLD JIM";
     assert_eq!(expected, actual);
 }
