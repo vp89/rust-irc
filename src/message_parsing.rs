@@ -1,4 +1,5 @@
 use std::{str::FromStr};
+use std::string;
 
 #[derive(Debug)]
 pub struct ClientToServerMessage {
@@ -7,7 +8,7 @@ pub struct ClientToServerMessage {
     pub params: String
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ClientToServerCommand {
     Nick,
 }
@@ -67,7 +68,7 @@ impl FromStr for ClientToServerMessage {
     }
 }
 
-impl std::string::ToString for ServerToClientMessage {
+impl ToString for ServerToClientMessage {
     fn to_string(&self) -> String {
         let raw_source = match &self.source {
             Source::Server(s) => s.to_owned(), // TODO remove to_owned
@@ -81,10 +82,22 @@ impl std::string::ToString for ServerToClientMessage {
 #[test]
 fn client_to_server_has_prefix_is_parsed() {
     let expected_source = "FOO";
+    let expected_command = ClientToServerCommand::Nick;
     let raw_str = &format!(":{} NICK", expected_source);
     let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid prefix");
     let actual_source = message.source.expect("Failed to parse source");
+    let actual_command = message.command;
     assert_eq!(expected_source, actual_source);
+    assert_eq!(expected_command, actual_command);
+}
+
+#[test]
+fn client_to_server_no_prefix_is_parsed() {
+    let expected_command = ClientToServerCommand::Nick;
+    let raw_str = &format!("NICK");
+    let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid prefix");
+    let actual_command = message.command;
+    assert_eq!(expected_command, actual_command);
 }
 
 #[test]
