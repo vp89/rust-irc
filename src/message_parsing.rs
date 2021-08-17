@@ -12,6 +12,7 @@ pub struct ClientToServerMessage<'a> {
 pub enum ClientToServerCommand {
     Unhandled,
     Nick,
+    Quit
 }
 
 #[derive(Debug)]
@@ -75,6 +76,7 @@ impl FromStr for ClientToServerMessage<'_> {
 
         let command = match raw_command {
             "NICK" => ClientToServerCommand::Nick,
+            "QUIT" => ClientToServerCommand::Quit,
             _ => ClientToServerCommand::Unhandled
         };
 

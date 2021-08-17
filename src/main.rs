@@ -20,6 +20,7 @@ fn main() -> io::Result<()> {
                             Ok(_) => (),
                             Err(e) => println!("ERROR {}", e)
                         }
+                        println!("FINISHED HANDLING THIS CONNECTION")
                     }));
             },
             Err(error) => println!("ERROR CONNECTING {}", error),
@@ -90,6 +91,10 @@ fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
                     stream.write(rplmsgs.as_bytes())?;
                     stream.flush()?;
                 },
+                ClientToServerCommand::Quit => {
+                    println!("RECEIVED QUIT");
+                    return Ok(());
+                }
                 ClientToServerCommand::Unhandled => {
                     println!("MESSAGE UNHANDLED {:?}", message);
                 }
