@@ -2,10 +2,10 @@ use std::{str::FromStr};
 use std::string;
 
 #[derive(Debug)]
-pub struct ClientToServerMessage {
+pub struct ClientToServerMessage<'a> {
     pub source: Option<String>,
     pub command: ClientToServerCommand,
-    pub params: String
+    pub params: &'a str
 }
 
 #[derive(Debug, PartialEq)]
@@ -21,7 +21,7 @@ pub struct ServerToClientMessage {
 #[derive(Debug)]
 pub struct ServerReplyMessage<'a> {
     pub source: &'a str,
-    pub target: String,
+    pub target: &'a str,
     pub reply_number: u32, // TODO this sucks
     pub reply: NumericReply<'a>
 }
@@ -34,7 +34,7 @@ pub enum NumericReply<'a> {
 #[derive(Debug)]
 pub struct RplWelcome<'a> {
     pub welcome_message: &'a str,
-    pub nick: String
+    pub nick: &'a str
 }
 
 #[derive(Debug)]
@@ -55,7 +55,7 @@ pub struct ServerToServerMessage {
     pub source: String
 }
 
-impl FromStr for ClientToServerMessage {
+impl FromStr for ClientToServerMessage<'_> {
     type Err = (); // TODO?
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -80,7 +80,7 @@ impl FromStr for ClientToServerMessage {
         let message = ClientToServerMessage {
             source,
             command,
-            params: "".to_owned()
+            params: ""
         };
 
         Ok(message)
@@ -175,11 +175,11 @@ fn server_to_client_from_client_is_valid() {
 fn rpl_welcome_prints_correctly() {
     let reply = ServerReplyMessage {
         source: "localhost",
-        target: "JIM".to_owned(),
+        target: "JIM",
         reply_number: 101,
         reply: NumericReply::RplWelcome(RplWelcome {
             welcome_message: "HELLO WORLD",
-            nick: "JIM".to_owned()
+            nick: "JIM"
         })
     };
 

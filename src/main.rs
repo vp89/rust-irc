@@ -58,11 +58,11 @@ fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
 
                     let rpl_welcome_message = ServerReplyMessage {
                         source: "localhost",
-                        target: nick.clone(),
+                        target: &nick,
                         reply_number: 101,
                         reply: NumericReply::RplWelcome(RplWelcome {
                             welcome_message: "WELCOME TO THE SERVER",
-                            nick: nick.clone()
+                            nick: &nick
                         })
                     };
 
