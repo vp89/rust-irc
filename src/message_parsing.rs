@@ -20,7 +20,7 @@ pub struct ServerToClientMessage {
 
 #[derive(Debug)]
 pub struct ServerReplyMessage<'a> {
-    pub source: String,
+    pub source: &'a str,
     pub target: String,
     pub reply_number: u32, // TODO this sucks
     pub reply: NumericReply<'a>
@@ -174,7 +174,7 @@ fn server_to_client_from_client_is_valid() {
 #[test]
 fn rpl_welcome_prints_correctly() {
     let reply = ServerReplyMessage {
-        source: "localhost".to_owned(),
+        source: "localhost",
         target: "JIM".to_owned(),
         reply_number: 101,
         reply: NumericReply::RplWelcome(RplWelcome {
