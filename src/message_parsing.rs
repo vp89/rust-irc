@@ -19,21 +19,21 @@ pub struct ServerToClientMessage {
 }
 
 #[derive(Debug)]
-pub struct ServerReplyMessage {
+pub struct ServerReplyMessage<'a> {
     pub source: String,
     pub target: String,
     pub reply_number: u32, // TODO this sucks
-    pub reply: NumericReply
+    pub reply: NumericReply<'a>
 }
 
 #[derive(Debug)]
-pub enum NumericReply {
-    RplWelcome(RplWelcome)
+pub enum NumericReply<'a> {
+    RplWelcome(RplWelcome<'a>)
 }
 
 #[derive(Debug)]
-pub struct RplWelcome {
-    pub welcome_message: String,
+pub struct RplWelcome<'a> {
+    pub welcome_message: &'a str,
     pub nick: String
 }
 
@@ -98,7 +98,7 @@ impl ToString for ServerToClientMessage {
     }
 }
 
-impl ToString for ServerReplyMessage {
+impl ToString for ServerReplyMessage<'_> {
     fn to_string(&self) -> String {
         format!(
             ":{} {} {} {}",
@@ -109,7 +109,7 @@ impl ToString for ServerReplyMessage {
     }
 }
 
-impl ToString for NumericReply {
+impl ToString for NumericReply<'_> {
     fn to_string(&self) -> String {
         match &self {
             NumericReply::RplWelcome(r) => {
@@ -178,7 +178,7 @@ fn rpl_welcome_prints_correctly() {
         target: "JIM".to_owned(),
         reply_number: 101,
         reply: NumericReply::RplWelcome(RplWelcome {
-            welcome_message: "HELLO WORLD".to_owned(),
+            welcome_message: "HELLO WORLD",
             nick: "JIM".to_owned()
         })
     };

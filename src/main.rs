@@ -61,7 +61,7 @@ fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
                         target: nick.clone(),
                         reply_number: 101,
                         reply: NumericReply::RplWelcome(RplWelcome {
-                            welcome_message: "WELCOME TO THE SERVER".to_owned(),
+                            welcome_message: "WELCOME TO THE SERVER",
                             nick: nick.clone()
                         })
                     };
