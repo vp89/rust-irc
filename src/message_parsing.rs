@@ -1,5 +1,5 @@
+use std::fmt::Display;
 use std::{str::FromStr};
-use std::string;
 
 #[derive(Debug)]
 pub struct ClientToServerMessage<'a> {
@@ -88,20 +88,21 @@ impl FromStr for ClientToServerMessage<'_> {
     }
 }
 
-impl ToString for ServerToClientMessage {
-    fn to_string(&self) -> String {
+impl Display for ServerToClientMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let raw_source = match &self.source {
             Source::Server(s) => s.to_owned(), // TODO remove to_owned
             Source::Client(s) => format!("{}!{}@{}", s.nick, s.user, s.host) 
         };
 
-        format!(":{}", raw_source)
+        write!(f, ":{}", raw_source)
     }
 }
 
-impl ToString for ServerReplyMessage<'_> {
-    fn to_string(&self) -> String {
-        format!(
+impl Display for ServerReplyMessage<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             ":{} {} {} {}",
             self.source,
             self.reply_number,
@@ -110,11 +111,12 @@ impl ToString for ServerReplyMessage<'_> {
     }
 }
 
-impl ToString for NumericReply<'_> {
-    fn to_string(&self) -> String {
+impl Display for NumericReply<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
             NumericReply::RplWelcome(r) => {
-                format!(
+                write!(
+                    f,
                     ":{} {}",
                     r.welcome_message,
                     r.nick)
