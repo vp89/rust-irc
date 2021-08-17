@@ -90,7 +90,7 @@ fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
                     stream.write(rplmsgs.as_bytes())?;
                     stream.flush()?;
                 },
-                _ => {
+                ClientToServerCommand::Unhandled => {
                     println!("MESSAGE UNHANDLED {:?}", message);
                 }
             }
