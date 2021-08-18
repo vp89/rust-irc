@@ -2,21 +2,28 @@ pub mod message_parsing;
 
 use std::{io::{self, Read, Write}, net::{TcpListener, TcpStream}, str::FromStr, thread};
 use chrono::{DateTime, Utc};
-use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, NumericReply, RplWelcome, ServerReplyMessage, ServerToClientMessage, Source, RplCreated};
+use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, NumericReply, RplWelcome, ServerReplyMessage, RplCreated};
 
 fn main() -> io::Result<()> {
-    let start_time = Utc::now();
-    println!("STARTING SERVER ON 127.0.0.1:6667");
+    let host = format!("localhost");
+    let context = ServerContext {
+        start_time: Utc::now(),
+        host: host.clone(),
+        version: format!("0.0.1")
+    };
 
-    let listener = TcpListener::bind("127.0.0.1:6667")?;
+    println!("STARTING SERVER ON {}:6667", host);
+
+    let listener = TcpListener::bind(format!("{}:6667", host))?;
     let mut connection_handles = vec![];
 
     for connection_attempt in listener.incoming() {
+        let server_context = context.clone();
         match connection_attempt {
             Ok(stream) => {
                 connection_handles.push(
                     thread::spawn(move || {
-                        let conn_outcome = handle_connection(stream, start_time.clone());
+                        let conn_outcome = handle_connection(stream, server_context);
                         match conn_outcome {
                             Ok(_) => (),
                             Err(e) => println!("ERROR {}", e)
@@ -35,7 +42,7 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn handle_connection(mut stream: TcpStream, start_time: DateTime<Utc>) -> io::Result<()> {
+fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Result<()> {
     loop {
         let mut buffer = [0;512];
         stream.read(&mut buffer)?;
@@ -57,7 +64,7 @@ fn handle_connection(mut stream: TcpStream, start_time: DateTime<Utc>) -> io::Re
                     let nick = c.nick;
 
                     let rpl_welcome_message = ServerReplyMessage {
-                        source: "localhost",
+                        source: &context.host,
                         target: &nick,
                         reply_number: "001",
                         reply: NumericReply::RplWelcome(RplWelcome {
@@ -67,12 +74,12 @@ fn handle_connection(mut stream: TcpStream, start_time: DateTime<Utc>) -> io::Re
                     };
 
                     let rpl_created_message = ServerReplyMessage {
-                        source: "localhost",
+                        source: &context.host,
                         target: &nick,
                         reply_number: "003",
                         reply: NumericReply::RplCreated(RplCreated {
                             created_message: "This server was created",
-                            created_at: &start_time
+                            created_at: &context.start_time
                         })
                     };
 
@@ -96,4 +103,11 @@ fn handle_connection(mut stream: TcpStream, start_time: DateTime<Utc>) -> io::Re
             }
         }
     }
+}
+
+#[derive(Clone)]
+struct ServerContext {
+    pub start_time: DateTime<Utc>,
+    pub host: String,
+    pub version: String
 }
