@@ -51,10 +51,9 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
 
         println!("RECEIVED {}", raw_payload);
 
-        let raw_messages = raw_payload.lines();
+        let mut raw_messages = raw_payload.lines();
 
-        // TODO do we need to clone here?
-        println!("SPLIT INTO {} MESSAGES", raw_messages.clone().count());
+        println!("SPLIT INTO {} MESSAGES", raw_messages.by_ref().count());
 
         for raw_message in raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
