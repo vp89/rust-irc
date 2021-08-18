@@ -1,18 +1,25 @@
 use std::fmt::Display;
 use std::{str::FromStr};
 
+use chrono::{DateTime, Utc};
+
 #[derive(Debug)]
 pub struct ClientToServerMessage<'a> {
     pub source: Option<String>,
     pub command: ClientToServerCommand,
-    pub params: &'a str
+    pub params: &'a str // TODO remove these?
 }
 
 #[derive(Debug, PartialEq)]
 pub enum ClientToServerCommand {
     Unhandled,
-    Nick,
+    Nick(NickCommand),
     Quit
+}
+
+#[derive(Debug, PartialEq)]
+pub struct NickCommand {
+    pub nick: String
 }
 
 #[derive(Debug)]
@@ -24,19 +31,26 @@ pub struct ServerToClientMessage {
 pub struct ServerReplyMessage<'a> {
     pub source: &'a str,
     pub target: &'a str,
-    pub reply_number: u32, // TODO this sucks
+    pub reply_number: &'a str, // TODO this sucks
     pub reply: NumericReply<'a>
 }
 
 #[derive(Debug)]
 pub enum NumericReply<'a> {
-    RplWelcome(RplWelcome<'a>)
+    RplWelcome(RplWelcome<'a>),
+    RplCreated(RplCreated<'a>)
 }
 
 #[derive(Debug)]
 pub struct RplWelcome<'a> {
     pub welcome_message: &'a str,
     pub nick: &'a str
+}
+
+#[derive(Debug)]
+pub struct RplCreated<'a> {
+    pub created_message: &'a str,
+    pub created_at: &'a DateTime<Utc>
 }
 
 #[derive(Debug)]
@@ -57,6 +71,7 @@ pub struct ServerToServerMessage {
     pub source: String
 }
 
+// TODO this doesnt handle NICK params
 impl FromStr for ClientToServerMessage<'_> {
     type Err = (); // TODO?
 
@@ -65,7 +80,7 @@ impl FromStr for ClientToServerMessage<'_> {
         let mut words = s.split_whitespace();
 
         let source = if has_source {
-            let raw_source = words.next().unwrap().trim_start_matches(':').to_owned(); // TODO remove unwrap
+            let raw_source = words.next().unwrap().trim_start_matches(':').to_owned(); // TODO fix this??
             Some(raw_source)
         } else {
             None
@@ -75,7 +90,12 @@ impl FromStr for ClientToServerMessage<'_> {
         let raw_command = words.next().unwrap(); // TODO remove unwrap
 
         let command = match raw_command {
-            "NICK" => ClientToServerCommand::Nick,
+            "NICK" => {
+                let nick = words.next().unwrap().to_owned(); // TODO handle error
+                ClientToServerCommand::Nick(NickCommand {
+                    nick
+                })
+            },
             "QUIT" => ClientToServerCommand::Quit,
             _ => ClientToServerCommand::Unhandled
         };
@@ -122,6 +142,15 @@ impl Display for NumericReply<'_> {
                     ":{} {}",
                     r.welcome_message,
                     r.nick)
+            },
+            NumericReply::RplCreated(r) =>
+            {
+                write!(
+                    f,
+                    ":{} {}",
+                    r.created_message,
+                    r.created_at
+                )
             }
         }
     }
@@ -129,23 +158,40 @@ impl Display for NumericReply<'_> {
 
 #[test]
 fn client_to_server_has_prefix_is_parsed() {
-    let expected_source = "FOO";
-    let expected_command = ClientToServerCommand::Nick;
-    let raw_str = &format!(":{} NICK", expected_source);
+    let expected_nick = format!("Joe");
+    let expected_message = ClientToServerMessage {
+        source: Some(format!("FOO")),
+        command: ClientToServerCommand::Nick(NickCommand {
+            nick: expected_nick.clone()
+        }),
+        params: ""
+    };
+    let raw_str = &format!(
+        ":{} NICK {}",
+        expected_message.source.as_ref().unwrap(),
+        expected_nick);
+
     let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid prefix");
-    let actual_source = message.source.expect("Failed to parse source");
+    let actual_source = message.source;
     let actual_command = message.command;
-    assert_eq!(expected_source, actual_source);
-    assert_eq!(expected_command, actual_command);
+    assert_eq!(expected_message.source, actual_source);
+    assert_eq!(expected_message.command, actual_command);
 }
 
 #[test]
 fn client_to_server_no_prefix_is_parsed() {
-    let expected_command = ClientToServerCommand::Nick;
-    let raw_str = &format!("NICK");
+    let expected_nick = format!("Joe");
+    let expected_message = ClientToServerMessage {
+        source: None,
+        command: ClientToServerCommand::Nick(NickCommand {
+            nick: expected_nick.clone()
+        }),
+        params: ""
+    };
+    let raw_str = &format!("NICK {}", expected_nick);
     let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid prefix");
     let actual_command = message.command;
-    assert_eq!(expected_command, actual_command);
+    assert_eq!(expected_message.command, actual_command);
 }
 
 #[test]
@@ -181,7 +227,7 @@ fn rpl_welcome_prints_correctly() {
     let reply = ServerReplyMessage {
         source: "localhost",
         target: "JIM",
-        reply_number: 101,
+        reply_number: "001",
         reply: NumericReply::RplWelcome(RplWelcome {
             welcome_message: "HELLO WORLD",
             nick: "JIM"
@@ -189,6 +235,6 @@ fn rpl_welcome_prints_correctly() {
     };
 
     let actual = reply.to_string();
-    let expected = ":localhost 101 JIM :HELLO WORLD JIM";
+    let expected = ":localhost 001 JIM :HELLO WORLD JIM";
     assert_eq!(expected, actual);
 }
