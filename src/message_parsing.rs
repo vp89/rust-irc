@@ -37,6 +37,7 @@ pub struct ServerReplyMessage<'a> {
 #[derive(Debug)]
 pub enum NumericReply<'a> {
     RplWelcome(RplWelcome<'a>),
+    RplYourHost(RplYourHost<'a>),
     RplCreated(RplCreated<'a>)
 }
 
@@ -44,6 +45,12 @@ pub enum NumericReply<'a> {
 pub struct RplWelcome<'a> {
     pub welcome_message: &'a str,
     pub nick: &'a str
+}
+
+#[derive(Debug)]
+pub struct RplYourHost<'a> {
+    pub host: &'a str,
+    pub version: &'a str
 }
 
 #[derive(Debug)]
@@ -141,6 +148,14 @@ impl Display for NumericReply<'_> {
                     r.welcome_message,
                     r.nick)
             },
+            NumericReply::RplYourHost(r) => {
+                write!(
+                    f,
+                    ":Your host is {}, running version {}",
+                    r.host,
+                    r.version
+                )
+            }
             NumericReply::RplCreated(r) =>
             {
                 write!(
@@ -232,5 +247,40 @@ fn rpl_welcome_prints_correctly() {
 
     let actual = reply.to_string();
     let expected = ":localhost 001 JIM :HELLO WORLD JIM";
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_yourhost_prints_correctly() {
+    let reply = ServerReplyMessage {
+        source: "localhost",
+        target: "JIM",
+        reply_number: "002",
+        reply: NumericReply::RplYourHost(RplYourHost {
+            host: "localhost",
+            version: "0.0.1"
+        })
+    };
+
+    let actual = reply.to_string();
+    let expected = ":localhost 002 JIM :Your host is localhost, running version 0.0.1";
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_created_prints_correctly() {
+    let now = Utc::now();
+    let reply = ServerReplyMessage {
+        source: "localhost",
+        target: "JIM",
+        reply_number: "003",
+        reply: NumericReply::RplCreated(RplCreated {
+            created_message: "This server was created",
+            created_at: &now 
+        })
+    };
+
+    let actual = reply.to_string();
+    let expected = format!(":localhost 003 JIM :This server was created {}", now);
     assert_eq!(expected, actual);
 }
