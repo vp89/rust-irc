@@ -4,10 +4,9 @@ use std::{str::FromStr};
 use chrono::{DateTime, Utc};
 
 #[derive(Debug)]
-pub struct ClientToServerMessage<'a> {
+pub struct ClientToServerMessage {
     pub source: Option<String>,
-    pub command: ClientToServerCommand,
-    pub params: &'a str // TODO remove these?
+    pub command: ClientToServerCommand
 }
 
 #[derive(Debug, PartialEq)]
@@ -72,7 +71,7 @@ pub struct ServerToServerMessage {
 }
 
 // TODO this doesnt handle NICK params
-impl FromStr for ClientToServerMessage<'_> {
+impl FromStr for ClientToServerMessage {
     type Err = (); // TODO?
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -102,8 +101,7 @@ impl FromStr for ClientToServerMessage<'_> {
 
         let message = ClientToServerMessage {
             source,
-            command,
-            params: ""
+            command
         };
 
         Ok(message)
@@ -163,8 +161,7 @@ fn client_to_server_has_prefix_is_parsed() {
         source: Some(format!("FOO")),
         command: ClientToServerCommand::Nick(NickCommand {
             nick: expected_nick.clone()
-        }),
-        params: ""
+        })
     };
     let raw_str = &format!(
         ":{} NICK {}",
@@ -185,8 +182,7 @@ fn client_to_server_no_prefix_is_parsed() {
         source: None,
         command: ClientToServerCommand::Nick(NickCommand {
             nick: expected_nick.clone()
-        }),
-        params: ""
+        })
     };
     let raw_str = &format!("NICK {}", expected_nick);
     let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid prefix");
