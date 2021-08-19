@@ -38,7 +38,8 @@ pub struct ServerReplyMessage<'a> {
 pub enum NumericReply<'a> {
     RplWelcome(RplWelcome<'a>),
     RplYourHost(RplYourHost<'a>),
-    RplCreated(RplCreated<'a>)
+    RplCreated(RplCreated<'a>),
+    RplMyInfo(RplMyInfo<'a>)
 }
 
 #[derive(Debug)]
@@ -57,6 +58,14 @@ pub struct RplYourHost<'a> {
 pub struct RplCreated<'a> {
     pub created_message: &'a str,
     pub created_at: &'a DateTime<Utc>
+}
+
+#[derive(Debug)]
+pub struct RplMyInfo<'a> {
+    pub host: &'a str,
+    pub version: &'a str,
+    pub available_user_modes: &'a str, // TODO set this properly
+    pub available_channel_modes: &'a str, // TODO set this properly
 }
 
 #[derive(Debug)]
@@ -155,7 +164,7 @@ impl Display for NumericReply<'_> {
                     r.host,
                     r.version
                 )
-            }
+            },
             NumericReply::RplCreated(r) =>
             {
                 write!(
@@ -163,6 +172,17 @@ impl Display for NumericReply<'_> {
                     ":{} {}",
                     r.created_message,
                     r.created_at
+                )
+            },
+            NumericReply::RplMyInfo(r) =>
+            {
+                write!(
+                    f,
+                    "{} {} {} {}",
+                    r.host,
+                    r.version,
+                    r.available_user_modes,
+                    r.available_channel_modes
                 )
             }
         }
@@ -282,5 +302,25 @@ fn rpl_created_prints_correctly() {
 
     let actual = reply.to_string();
     let expected = format!(":localhost 003 JIM :This server was created {}", now);
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_myinfo_prints_correctly() {
+    let now = Utc::now();
+    let reply = ServerReplyMessage {
+        source: "localhost",
+        target: "JIM",
+        reply_number: "004",
+        reply: NumericReply::RplMyInfo(RplMyInfo {
+            host: "localhost",
+            version: "0.0.1",
+            available_user_modes: "r",
+            available_channel_modes: "i" 
+        })
+    };
+
+    let actual = reply.to_string();
+    let expected = format!(":localhost 004 JIM localhost 0.0.1 r i");
     assert_eq!(expected, actual);
 }
