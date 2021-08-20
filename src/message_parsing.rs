@@ -29,7 +29,7 @@ pub struct ServerToClientMessage {
 #[derive(Debug)]
 pub struct ServerReplyMessage<'a> {
     pub source: &'a str,
-    pub target: &'a str,
+    pub target: String,
     pub reply_number: &'a str, // TODO this sucks
     pub reply: NumericReply<'a>
 }
@@ -46,7 +46,7 @@ pub enum NumericReply<'a> {
 #[derive(Debug)]
 pub struct RplWelcome<'a> {
     pub welcome_message: &'a str,
-    pub nick: &'a str
+    pub nick: String
 }
 
 #[derive(Debug)]
@@ -233,11 +233,11 @@ fn server_to_client_from_client_is_valid() {
 fn rpl_welcome_prints_correctly() {
     let reply = ServerReplyMessage {
         source: "localhost",
-        target: "JIM",
+        target: "JIM".to_string(),
         reply_number: "001",
         reply: NumericReply::RplWelcome(RplWelcome {
             welcome_message: "HELLO WORLD",
-            nick: "JIM"
+            nick: "JIM".to_string()
         })
     };
 
@@ -250,7 +250,7 @@ fn rpl_welcome_prints_correctly() {
 fn rpl_yourhost_prints_correctly() {
     let reply = ServerReplyMessage {
         source: "localhost",
-        target: "JIM",
+        target: "JIM".to_string(),
         reply_number: "002",
         reply: NumericReply::RplYourHost(RplYourHost {
             host: "localhost",
@@ -268,7 +268,7 @@ fn rpl_created_prints_correctly() {
     let now = Utc::now();
     let reply = ServerReplyMessage {
         source: "localhost",
-        target: "JIM",
+        target: "JIM".to_string(),
         reply_number: "003",
         reply: NumericReply::RplCreated(RplCreated {
             created_message: "This server was created",
@@ -286,7 +286,7 @@ fn rpl_myinfo_prints_correctly() {
     let now = Utc::now();
     let reply = ServerReplyMessage {
         source: "localhost",
-        target: "JIM",
+        target: "JIM".to_string(),
         reply_number: "004",
         reply: NumericReply::RplMyInfo(RplMyInfo {
             host: "localhost",
@@ -306,7 +306,7 @@ fn rpl_isupport_prints_correctly() {
     let now = Utc::now();
     let reply = ServerReplyMessage {
         source: "localhost",
-        target: "JIM",
+        target: "JIM".to_string(),
         reply_number: "005",
         reply: NumericReply::RplISupport(RplISupport {
             channel_len: 100

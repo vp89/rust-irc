@@ -44,6 +44,9 @@ fn main() -> io::Result<()> {
 
 fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Result<()> {
     loop {
+        // connection handler just runs a loop that reads bytes off the stream
+        // and sends responses based on logic or until the connection has died
+        // there also needs to be a ping loop going on that can stop this loop too
         let mut buffer = [0;512];
         stream.read(&mut buffer)?;
         let raw_payload = std::str::from_utf8(&buffer)
@@ -57,24 +60,32 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
 
         for raw_message in raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
-            println!("RAW MESSAGE {:?}", message);
-            match message.command {
-                ClientToServerCommand::Nick(c) => {
-                    let nick = c.nick;
 
+            println!("RAW MESSAGE {:?}", message);
+
+            let replies = match message.command {
+                ClientToServerCommand::Quit => {
+                    println!("RECEIVED QUIT");
+                    return Ok(()); // is using return not idiomatic?? Look into that
+                }
+                ClientToServerCommand::Unhandled => {
+                    println!("MESSAGE UNHANDLED {:?}", message);
+                    None
+                },
+                ClientToServerCommand::Nick(c) => {
                     let rpl_welcome_message = ServerReplyMessage {
                         source: &context.host,
-                        target: &nick,
+                        target: c.nick.clone(),
                         reply_number: "001",
                         reply: NumericReply::RplWelcome(RplWelcome {
                             welcome_message: "WELCOME TO THE SERVER",
-                            nick: &nick
+                            nick: c.nick.clone()
                         })
                     };
 
                     let rpl_yourhost_message = ServerReplyMessage {
                         source: &context.host,
-                        target: &nick,
+                        target: c.nick.clone(),
                         reply_number: "002",
                         reply: NumericReply::RplYourHost(RplYourHost {
                             host: &context.host,
@@ -84,7 +95,7 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
 
                     let rpl_created_message = ServerReplyMessage {
                         source: &context.host,
-                        target: &nick,
+                        target: c.nick.clone(),
                         reply_number: "003",
                         reply: NumericReply::RplCreated(RplCreated {
                             created_message: "This server was created",
@@ -94,7 +105,7 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
 
                     let rpl_myinfo_message = ServerReplyMessage {
                         source: &context.host,
-                        target: &nick,
+                        target: c.nick.clone(),
                         reply_number: "004",
                         reply: NumericReply::RplMyInfo(RplMyInfo {
                             host: &context.host,
@@ -106,19 +117,16 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
 
                     let rpl_isupport_message = ServerReplyMessage {
                         source: &context.host,
-                        target: &nick,
+                        target: c.nick.clone(),
                         reply_number: "005",
                         reply: NumericReply::RplISupport(RplISupport {
                             channel_len: 32 // TODO make this configurable
                         })
                     };
 
+                    /*
                     let rplmsgs = format!(
-                        "{}\r\n
-                        {}\r\n
-                        {}\r\n
-                        {}\r\n
-                        {}\r\n
+                        "
                         :localhost 251 {nick} :There are 100 users and 20 invisible on 1 servers\r\n
                         :localhost 252 {nick} 1337 :IRC Operators online\r\n
                         :localhost 253 {nick} 7 :unknown connection(s)\r\n
@@ -129,24 +137,26 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                         :localhost 250 {nick} :Highest connection count: 9998 (9000 clients) (99999 connections received)\r\n
                         :localhost 375 {nick} :- localhost Message of the Day - \r\n
                         :localhost 372 {nick} :- Foobar\r\n
-                        :localhost 376 {nick} :End of /MOTD command.",
-                        rpl_welcome_message.to_string(),
-                        rpl_yourhost_message.to_string(),
-                        rpl_created_message.to_string(),
-                        rpl_myinfo_message.to_string(),
-                        rpl_isupport_message.to_string(),
-                        nick = nick);
+                        :localhost 376 {nick} :End of /MOTD command.");
+                    */
 
-                    println!("SENDING {}", rplmsgs);
-                    stream.write(rplmsgs.as_bytes())?;
-                    stream.flush()?;
-                },
-                ClientToServerCommand::Quit => {
-                    println!("RECEIVED QUIT");
-                    return Ok(());
+                    Some(vec![rpl_welcome_message, rpl_yourhost_message, rpl_created_message, rpl_myinfo_message, rpl_isupport_message])
                 }
-                ClientToServerCommand::Unhandled => {
-                    println!("MESSAGE UNHANDLED {:?}", message);
+            };
+
+            match replies {
+                None => {},
+                Some(messages) => {
+                    let mut reply = String::new();
+
+                    for message in messages {
+                        reply.push_str(&message.to_string());
+                        reply.push_str("\r\n");                        
+                    }
+
+                    println!("SENDING {}", reply);
+                    stream.write(reply.as_bytes())?;
+                    stream.flush()?;
                 }
             }
         }
