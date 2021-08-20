@@ -73,48 +73,45 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                     None
                 },
                 ClientToServerCommand::Nick(c) => {
-                    let welcome = ServerReplyMessage::new(
-                        &context.host,
-                        c.nick.clone(),
-                        "001",
-                        NumericReply::RplWelcome(RplWelcome { welcome_message: "WELCOME TO THE SERVER", nick: c.nick.clone() }));
-
-                    let your_host = ServerReplyMessage::new(
-                        &context.host,
-                        c.nick.clone(),
-                        "002",
-                        NumericReply::RplYourHost(RplYourHost {
-                            host: &context.host,
-                            version: &context.version
-                        }));
-
-                    let created = ServerReplyMessage::new(
-                        &context.host,
-                        c.nick.clone(),
-                        "003",
-                        NumericReply::RplCreated(RplCreated {
-                            created_message: "This server was created",
-                            created_at: &context.start_time
-                        }));
-
-                    let my_info = ServerReplyMessage::new(
-                        &context.host,
-                        c.nick.clone(),
-                        "004",
-                        NumericReply::RplMyInfo(RplMyInfo {
-                            host: &context.host,
-                            version: &context.version,
-                            available_user_modes: "r",
-                            available_channel_modes: "i"
-                        }));
-
-                    let i_support = ServerReplyMessage::new(
-                        &context.host,
-                        c.nick.clone(),
-                        "005",
-                        NumericReply::RplISupport(RplISupport {
-                            channel_len: 32 // TODO make this configurable
-                        }));
+                    Some(vec![
+                        ServerReplyMessage::new(
+                            &context.host,
+                            c.nick.clone(),
+                            "001",
+                            NumericReply::RplWelcome(RplWelcome { welcome_message: "WELCOME TO THE SERVER", nick: c.nick.clone() })),
+                        ServerReplyMessage::new(
+                            &context.host,
+                            c.nick.clone(),
+                            "002",
+                            NumericReply::RplYourHost(RplYourHost {
+                                host: &context.host,
+                                version: &context.version
+                            })),
+                        ServerReplyMessage::new(
+                            &context.host,
+                            c.nick.clone(),
+                            "003",
+                            NumericReply::RplCreated(RplCreated {
+                                created_message: "This server was created",
+                                created_at: &context.start_time
+                            })),
+                        ServerReplyMessage::new(
+                            &context.host,
+                            c.nick.clone(),
+                            "004",
+                            NumericReply::RplMyInfo(RplMyInfo {
+                                host: &context.host,
+                                version: &context.version,
+                                available_user_modes: "r",
+                                available_channel_modes: "i"
+                            })),
+                        ServerReplyMessage::new(
+                            &context.host,
+                            c.nick.clone(),
+                            "005",
+                            NumericReply::RplISupport(RplISupport {
+                                channel_len: 32 // TODO make this configurable
+                            }))])
 
                     /*
                     let rplmsgs = format!(
@@ -131,8 +128,6 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                         :localhost 372 {nick} :- Foobar\r\n
                         :localhost 376 {nick} :End of /MOTD command.");
                     */
-
-                    Some(vec![welcome, your_host, created, my_info, i_support])
                 }
             };
 
