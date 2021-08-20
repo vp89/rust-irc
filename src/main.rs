@@ -2,7 +2,7 @@ pub mod message_parsing; // TODO does this do anything?
 
 use std::{io::{self, Read, Write}, net::{TcpListener, TcpStream}, str::FromStr, thread};
 use chrono::{DateTime, Utc};
-use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, NumericReply, RplWelcome, ServerReplyMessage, RplCreated, RplYourHost, RplMyInfo};
+use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, NumericReply, RplWelcome, ServerReplyMessage, RplCreated, RplYourHost, RplMyInfo, RplISupport};
 
 fn main() -> io::Result<()> {
     let host = format!("localhost");
@@ -104,12 +104,21 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                         })
                     };
 
+                    let rpl_isupport_message = ServerReplyMessage {
+                        source: &context.host,
+                        target: &nick,
+                        reply_number: "005",
+                        reply: NumericReply::RplISupport(RplISupport {
+                            channel_len: 32 // TODO make this configurable
+                        })
+                    };
+
                     let rplmsgs = format!(
                         "{}\r\n
                         {}\r\n
                         {}\r\n
                         {}\r\n
-                        :localhost 005 {nick} CHANNELLEN=32 :are supported by this server\r\n
+                        {}\r\n
                         :localhost 251 {nick} :There are 100 users and 20 invisible on 1 servers\r\n
                         :localhost 252 {nick} 1337 :IRC Operators online\r\n
                         :localhost 253 {nick} 7 :unknown connection(s)\r\n
@@ -125,6 +134,7 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                         rpl_yourhost_message.to_string(),
                         rpl_created_message.to_string(),
                         rpl_myinfo_message.to_string(),
+                        rpl_isupport_message.to_string(),
                         nick = nick);
 
                     println!("SENDING {}", rplmsgs);

@@ -39,7 +39,8 @@ pub enum NumericReply<'a> {
     RplWelcome(RplWelcome<'a>),
     RplYourHost(RplYourHost<'a>),
     RplCreated(RplCreated<'a>),
-    RplMyInfo(RplMyInfo<'a>)
+    RplMyInfo(RplMyInfo<'a>),
+    RplISupport(RplISupport)
 }
 
 #[derive(Debug)]
@@ -66,6 +67,11 @@ pub struct RplMyInfo<'a> {
     pub version: &'a str,
     pub available_user_modes: &'a str, // TODO set this properly
     pub available_channel_modes: &'a str, // TODO set this properly
+}
+
+#[derive(Debug)]
+pub struct RplISupport {
+    pub channel_len: u32 // TODO this is wrong this message needs to be much more flexible
 }
 
 #[derive(Debug)]
@@ -150,41 +156,11 @@ impl Display for ServerReplyMessage<'_> {
 impl Display for NumericReply<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            NumericReply::RplWelcome(r) => {
-                write!(
-                    f,
-                    ":{} {}",
-                    r.welcome_message,
-                    r.nick)
-            },
-            NumericReply::RplYourHost(r) => {
-                write!(
-                    f,
-                    ":Your host is {}, running version {}",
-                    r.host,
-                    r.version
-                )
-            },
-            NumericReply::RplCreated(r) =>
-            {
-                write!(
-                    f,
-                    ":{} {}",
-                    r.created_message,
-                    r.created_at
-                )
-            },
-            NumericReply::RplMyInfo(r) =>
-            {
-                write!(
-                    f,
-                    "{} {} {} {}",
-                    r.host,
-                    r.version,
-                    r.available_user_modes,
-                    r.available_channel_modes
-                )
-            }
+            NumericReply::RplWelcome(r) => write!(f, ":{} {}", r.welcome_message, r.nick),
+            NumericReply::RplYourHost(r) => write!(f, ":Your host is {}, running version {}", r.host, r.version),
+            NumericReply::RplCreated(r) => write!(f, ":{} {}", r.created_message, r.created_at),
+            NumericReply::RplMyInfo(r) => write!(f, "{} {} {} {}", r.host, r.version, r.available_user_modes, r.available_channel_modes),
+            NumericReply::RplISupport(r) => write!(f, "CHANNELLEN={} :are supported by this server", r.channel_len)
         }
     }
 }
@@ -322,5 +298,22 @@ fn rpl_myinfo_prints_correctly() {
 
     let actual = reply.to_string();
     let expected = format!(":localhost 004 JIM localhost 0.0.1 r i");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_isupport_prints_correctly() {
+    let now = Utc::now();
+    let reply = ServerReplyMessage {
+        source: "localhost",
+        target: "JIM",
+        reply_number: "005",
+        reply: NumericReply::RplISupport(RplISupport {
+            channel_len: 100
+        })
+    };
+
+    let actual = reply.to_string();
+    let expected = format!(":localhost 005 JIM CHANNELLEN=100 :are supported by this server");
     assert_eq!(expected, actual);
 }
