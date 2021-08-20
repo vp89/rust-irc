@@ -34,6 +34,12 @@ pub struct ServerReplyMessage<'a> {
     pub reply: NumericReply<'a>
 }
 
+impl<'a> ServerReplyMessage<'a> {
+    pub fn new(source: &'a str, target: String, reply_number: &'a str, reply: NumericReply<'a>) -> Self {
+        ServerReplyMessage { source, target, reply_number, reply }
+    }
+}
+
 #[derive(Debug)]
 pub enum NumericReply<'a> {
     RplWelcome(RplWelcome<'a>),

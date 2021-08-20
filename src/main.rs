@@ -73,56 +73,48 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                     None
                 },
                 ClientToServerCommand::Nick(c) => {
-                    let rpl_welcome_message = ServerReplyMessage {
-                        source: &context.host,
-                        target: c.nick.clone(),
-                        reply_number: "001",
-                        reply: NumericReply::RplWelcome(RplWelcome {
-                            welcome_message: "WELCOME TO THE SERVER",
-                            nick: c.nick.clone()
-                        })
-                    };
+                    let welcome = ServerReplyMessage::new(
+                        &context.host,
+                        c.nick.clone(),
+                        "001",
+                        NumericReply::RplWelcome(RplWelcome { welcome_message: "WELCOME TO THE SERVER", nick: c.nick.clone() }));
 
-                    let rpl_yourhost_message = ServerReplyMessage {
-                        source: &context.host,
-                        target: c.nick.clone(),
-                        reply_number: "002",
-                        reply: NumericReply::RplYourHost(RplYourHost {
+                    let your_host = ServerReplyMessage::new(
+                        &context.host,
+                        c.nick.clone(),
+                        "002",
+                        NumericReply::RplYourHost(RplYourHost {
                             host: &context.host,
                             version: &context.version
-                        })
-                    };
+                        }));
 
-                    let rpl_created_message = ServerReplyMessage {
-                        source: &context.host,
-                        target: c.nick.clone(),
-                        reply_number: "003",
-                        reply: NumericReply::RplCreated(RplCreated {
+                    let created = ServerReplyMessage::new(
+                        &context.host,
+                        c.nick.clone(),
+                        "003",
+                        NumericReply::RplCreated(RplCreated {
                             created_message: "This server was created",
                             created_at: &context.start_time
-                        })
-                    };
+                        }));
 
-                    let rpl_myinfo_message = ServerReplyMessage {
-                        source: &context.host,
-                        target: c.nick.clone(),
-                        reply_number: "004",
-                        reply: NumericReply::RplMyInfo(RplMyInfo {
+                    let my_info = ServerReplyMessage::new(
+                        &context.host,
+                        c.nick.clone(),
+                        "004",
+                        NumericReply::RplMyInfo(RplMyInfo {
                             host: &context.host,
                             version: &context.version,
                             available_user_modes: "r",
                             available_channel_modes: "i"
-                        })
-                    };
+                        }));
 
-                    let rpl_isupport_message = ServerReplyMessage {
-                        source: &context.host,
-                        target: c.nick.clone(),
-                        reply_number: "005",
-                        reply: NumericReply::RplISupport(RplISupport {
+                    let i_support = ServerReplyMessage::new(
+                        &context.host,
+                        c.nick.clone(),
+                        "005",
+                        NumericReply::RplISupport(RplISupport {
                             channel_len: 32 // TODO make this configurable
-                        })
-                    };
+                        }));
 
                     /*
                     let rplmsgs = format!(
@@ -140,7 +132,7 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                         :localhost 376 {nick} :End of /MOTD command.");
                     */
 
-                    Some(vec![rpl_welcome_message, rpl_yourhost_message, rpl_created_message, rpl_myinfo_message, rpl_isupport_message])
+                    Some(vec![welcome, your_host, created, my_info, i_support])
                 }
             };
 
