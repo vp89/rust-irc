@@ -1,6 +1,5 @@
 use std::fmt::Display;
 use std::{str::FromStr};
-
 use chrono::{DateTime, Utc};
 
 #[derive(Debug)]
@@ -26,53 +25,121 @@ pub struct ServerToClientMessage {
     pub source: Source
 }
 
-#[derive(Debug)]
-pub struct ServerReplyMessage<'a> {
-    pub source: &'a str,
-    pub target: String,
-    pub reply_number: &'a str, // TODO this sucks
-    pub reply: NumericReply<'a>
+pub trait ReplyMessage : ToString {
+    const NUMBER: &'static str;
 }
 
-impl<'a> ServerReplyMessage<'a> {
-    pub fn new(source: &'a str, target: String, reply_number: &'a str, reply: NumericReply<'a>) -> Self {
-        ServerReplyMessage { source, target, reply_number, reply }
+impl Display for ReplyWelcome {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} :{} {}", self.host, ReplyWelcome::NUMBER, self.nick, self.welcome_message, self.nick)
     }
 }
 
-#[derive(Debug)]
-pub enum NumericReply<'a> {
-    RplWelcome(RplWelcome<'a>),
-    RplYourHost(RplYourHost<'a>),
-    RplCreated(RplCreated<'a>),
-    RplMyInfo(RplMyInfo<'a>),
-    RplISupport(RplISupport)
+impl Display for ReplyYourHost {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} :Your host is {}, running version {}", self.host, ReplyYourHost::NUMBER, self.nick, self.host, self.version)
+    }
 }
 
-#[derive(Debug)]
-pub struct RplWelcome<'a> {
-    pub welcome_message: &'a str,
+impl Display for ReplyCreated {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} :{} {}", self.host, ReplyCreated::NUMBER, self.nick, self.created_message, self.created_at)
+    }
+}
+
+impl Display for ReplyMyInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} {} {} {} {}", self.host, ReplyMyInfo::NUMBER, self.nick, self.host, self.version, self.available_user_modes, self.available_channel_modes)
+    }
+}
+
+impl Display for ReplySupport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} CHANNELLEN={} :are supported by this server", self.host, ReplySupport::NUMBER, self.nick, self.channel_len)
+    }
+}
+
+impl ReplyMessage for ReplyWelcome {
+    const NUMBER: &'static str = "001";
+}
+
+impl ReplyMessage for ReplyYourHost {
+    const NUMBER: &'static str = "002";
+}
+
+impl ReplyMessage for ReplyCreated {
+    const NUMBER: &'static str = "003";
+}
+
+impl ReplyMessage for ReplyMyInfo {
+    const NUMBER: &'static str = "004";
+}
+
+impl ReplyMessage for ReplySupport {
+    const NUMBER: &'static str = "005";
+}
+
+pub struct ReplyWelcome {
+    pub host: String,
+    pub welcome_message: String,
     pub nick: String
 }
 
-#[derive(Debug)]
-pub struct RplYourHost<'a> {
-    pub host: &'a str,
-    pub version: &'a str
+pub struct ReplyYourHost {
+    pub host: String,
+    pub nick: String,
+    pub version: String,
 }
 
-#[derive(Debug)]
-pub struct RplCreated<'a> {
-    pub created_message: &'a str,
-    pub created_at: &'a DateTime<Utc>
+pub struct ReplyCreated {
+    pub host: String,
+    pub nick: String,
+    pub created_message: String,
+    pub created_at: DateTime<Utc>
 }
 
-#[derive(Debug)]
-pub struct RplMyInfo<'a> {
-    pub host: &'a str,
-    pub version: &'a str,
-    pub available_user_modes: &'a str, // TODO set this properly
-    pub available_channel_modes: &'a str, // TODO set this properly
+pub struct ReplyMyInfo {
+    pub host: String,
+    pub nick: String,
+    pub version: String,
+    pub available_user_modes: String, // TODO set this up properly
+    pub available_channel_modes: String, // TODO set this up properly
+}
+
+pub struct ReplySupport {
+    pub host: String,
+    pub nick: String,
+    pub channel_len: u32 // TODO this is wrong this message needs to be much more flexible
+}
+
+impl ReplyWelcome {
+    pub fn new(host: String, welcome_message: String, nick: String) -> Box<dyn Display> {
+        Box::new(ReplyWelcome { host, welcome_message, nick })
+    }
+}
+
+impl ReplyYourHost {
+    pub fn new(host: String, version: String, nick: String) -> Box<dyn Display> {
+        Box::new(ReplyYourHost { host, version, nick })
+    }
+}
+
+impl ReplyCreated {
+    pub fn new(host: String, nick: String, created_message: String, created_at: DateTime<Utc>) -> Box<dyn Display> {
+        Box::new(ReplyCreated { host, nick, created_message, created_at })
+    }
+}
+
+impl ReplyMyInfo {
+    pub fn new(host: String, nick: String, version: String, available_user_modes: String, available_channel_modes: String) -> Box<dyn Display> {
+        Box::new(ReplyMyInfo { host, nick, version, available_user_modes, available_channel_modes })
+    }
+}
+
+impl ReplySupport {
+    pub fn new(host: String, nick: String, channel_len: u32) -> Box<dyn Display> {
+        Box::new(ReplySupport { host, nick, channel_len })
+    }
 }
 
 #[derive(Debug)]
@@ -147,30 +214,6 @@ impl Display for ServerToClientMessage {
     }
 }
 
-impl Display for ServerReplyMessage<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            ":{} {} {} {}",
-            self.source,
-            self.reply_number,
-            self.target,
-            self.reply.to_string())
-    }
-}
-
-impl Display for NumericReply<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            NumericReply::RplWelcome(r) => write!(f, ":{} {}", r.welcome_message, r.nick),
-            NumericReply::RplYourHost(r) => write!(f, ":Your host is {}, running version {}", r.host, r.version),
-            NumericReply::RplCreated(r) => write!(f, ":{} {}", r.created_message, r.created_at),
-            NumericReply::RplMyInfo(r) => write!(f, "{} {} {} {}", r.host, r.version, r.available_user_modes, r.available_channel_modes),
-            NumericReply::RplISupport(r) => write!(f, "CHANNELLEN={} :are supported by this server", r.channel_len)
-        }
-    }
-}
-
 #[test]
 fn client_to_server_has_prefix_is_parsed() {
     let expected_nick = format!("Joe");
@@ -237,16 +280,7 @@ fn server_to_client_from_client_is_valid() {
 
 #[test]
 fn rpl_welcome_prints_correctly() {
-    let reply = ServerReplyMessage {
-        source: "localhost",
-        target: "JIM".to_string(),
-        reply_number: "001",
-        reply: NumericReply::RplWelcome(RplWelcome {
-            welcome_message: "HELLO WORLD",
-            nick: "JIM".to_string()
-        })
-    };
-
+    let reply = ReplyWelcome::new("localhost".to_string(), "HELLO WORLD".to_string(), "JIM".to_string());
     let actual = reply.to_string();
     let expected = ":localhost 001 JIM :HELLO WORLD JIM";
     assert_eq!(expected, actual);
@@ -254,16 +288,7 @@ fn rpl_welcome_prints_correctly() {
 
 #[test]
 fn rpl_yourhost_prints_correctly() {
-    let reply = ServerReplyMessage {
-        source: "localhost",
-        target: "JIM".to_string(),
-        reply_number: "002",
-        reply: NumericReply::RplYourHost(RplYourHost {
-            host: "localhost",
-            version: "0.0.1"
-        })
-    };
-
+    let reply = ReplyYourHost::new("localhost".to_string(), "0.0.1".to_string(), "JIM".to_string());
     let actual = reply.to_string();
     let expected = ":localhost 002 JIM :Your host is localhost, running version 0.0.1";
     assert_eq!(expected, actual);
@@ -272,16 +297,7 @@ fn rpl_yourhost_prints_correctly() {
 #[test]
 fn rpl_created_prints_correctly() {
     let now = Utc::now();
-    let reply = ServerReplyMessage {
-        source: "localhost",
-        target: "JIM".to_string(),
-        reply_number: "003",
-        reply: NumericReply::RplCreated(RplCreated {
-            created_message: "This server was created",
-            created_at: &now 
-        })
-    };
-
+    let reply = ReplyCreated::new("localhost".to_string(), "JIM".to_string(), "This server was created".to_string(), now.clone());
     let actual = reply.to_string();
     let expected = format!(":localhost 003 JIM :This server was created {}", now);
     assert_eq!(expected, actual);
@@ -289,19 +305,7 @@ fn rpl_created_prints_correctly() {
 
 #[test]
 fn rpl_myinfo_prints_correctly() {
-    let now = Utc::now();
-    let reply = ServerReplyMessage {
-        source: "localhost",
-        target: "JIM".to_string(),
-        reply_number: "004",
-        reply: NumericReply::RplMyInfo(RplMyInfo {
-            host: "localhost",
-            version: "0.0.1",
-            available_user_modes: "r",
-            available_channel_modes: "i" 
-        })
-    };
-
+    let reply = ReplyMyInfo::new("localhost".to_string(), "JIM".to_string(), "0.0.1".to_string(), "r".to_string(), "i".to_string());
     let actual = reply.to_string();
     let expected = format!(":localhost 004 JIM localhost 0.0.1 r i");
     assert_eq!(expected, actual);
@@ -309,16 +313,7 @@ fn rpl_myinfo_prints_correctly() {
 
 #[test]
 fn rpl_isupport_prints_correctly() {
-    let now = Utc::now();
-    let reply = ServerReplyMessage {
-        source: "localhost",
-        target: "JIM".to_string(),
-        reply_number: "005",
-        reply: NumericReply::RplISupport(RplISupport {
-            channel_len: 100
-        })
-    };
-
+    let reply = ReplySupport::new("localhost".to_string(), "JIM".to_string(), 100);
     let actual = reply.to_string();
     let expected = format!(":localhost 005 JIM CHANNELLEN=100 :are supported by this server");
     assert_eq!(expected, actual);

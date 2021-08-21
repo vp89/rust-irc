@@ -1,8 +1,8 @@
-pub mod message_parsing; // TODO does this do anything?
+pub mod message_parsing;
 
 use std::{io::{self, Read, Write}, net::{TcpListener, TcpStream}, str::FromStr, thread};
 use chrono::{DateTime, Utc};
-use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, NumericReply, RplWelcome, ServerReplyMessage, RplCreated, RplYourHost, RplMyInfo, RplISupport};
+use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplyWelcome, ReplyYourHost, ReplyCreated, ReplyMyInfo, ReplySupport};
 
 fn main() -> io::Result<()> {
     let host = format!("localhost");
@@ -74,45 +74,12 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                 },
                 ClientToServerCommand::Nick(c) => {
                     Some(vec![
-                        ServerReplyMessage::new(
-                            &context.host,
-                            c.nick.clone(),
-                            "001",
-                            NumericReply::RplWelcome(RplWelcome { welcome_message: "WELCOME TO THE SERVER", nick: c.nick.clone() })),
-                        ServerReplyMessage::new(
-                            &context.host,
-                            c.nick.clone(),
-                            "002",
-                            NumericReply::RplYourHost(RplYourHost {
-                                host: &context.host,
-                                version: &context.version
-                            })),
-                        ServerReplyMessage::new(
-                            &context.host,
-                            c.nick.clone(),
-                            "003",
-                            NumericReply::RplCreated(RplCreated {
-                                created_message: "This server was created",
-                                created_at: &context.start_time
-                            })),
-                        ServerReplyMessage::new(
-                            &context.host,
-                            c.nick.clone(),
-                            "004",
-                            NumericReply::RplMyInfo(RplMyInfo {
-                                host: &context.host,
-                                version: &context.version,
-                                available_user_modes: "r",
-                                available_channel_modes: "i"
-                            })),
-                        ServerReplyMessage::new(
-                            &context.host,
-                            c.nick.clone(),
-                            "005",
-                            NumericReply::RplISupport(RplISupport {
-                                channel_len: 32 // TODO make this configurable
-                            }))])
-
+                        ReplyWelcome::new(context.host.clone(), "WELCOME TO THE SERVER".to_string(), c.nick.clone()),
+                        ReplyYourHost::new(context.host.clone(), context.version.clone(), c.nick.clone()),
+                        ReplyCreated::new(context.host.clone(), c.nick.clone(), "This server was created".to_string(), context.start_time.clone()),
+                        ReplyMyInfo::new(context.host.clone(), c.nick.clone(), context.version.clone(), "r".to_string(), "i".to_string()),
+                        ReplySupport::new(context.host.clone(), c.nick.clone(), 32 /* TODO make this configurable */)
+                    ])
                     /*
                     let rplmsgs = format!(
                         "
