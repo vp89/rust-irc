@@ -73,7 +73,7 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                     None
                 },
                 ClientToServerCommand::Nick(c) => {
-                    Some(vec![
+                    let mut welcome_storm = vec![
                         ReplyWelcome::new(context.host.clone(), "WELCOME TO THE SERVER".to_string(), c.nick.clone()),
                         ReplyYourHost::new(context.host.clone(), context.version.clone(), c.nick.clone()),
                         ReplyCreated::new(context.host.clone(), c.nick.clone(), "This server was created".to_string(), context.start_time.clone()),
@@ -82,18 +82,20 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                         ReplyLUserClient::new(context.host.clone(), c.nick.clone(), 100, 20, 1 /* TODO make these live update */),
                         ReplyLUserOp::new(context.host.clone(), c.nick.clone(), 1337),
                         ReplyLUserUnknown::new(context.host.clone(), c.nick.clone(), 7),
-                    ])
-                    /*
-                    let rplmsgs = format!(
-                        ":localhost 254 {nick} 9999 :channels formed\r\n
-                        :localhost 255 {nick} :I have 900 clients and 1 servers\r\n
-                        :localhost 265 {nick} 845 1000 :Current local users 845, max 1000\r\n
-                        :localhost 266 {nick} 9823 23455 :Current global users 9823, max 23455\r\n
-                        :localhost 250 {nick} :Highest connection count: 9998 (9000 clients) (99999 connections received)\r\n
-                        :localhost 375 {nick} :- localhost Message of the Day - \r\n
-                        :localhost 372 {nick} :- Foobar\r\n
-                        :localhost 376 {nick} :End of /MOTD command.");
-                    */
+                        ReplyLUserChannels::new(context.host.clone(), c.nick.clone(), 9999),
+                        ReplyLUserMe::new(context.host.clone(), c.nick.clone(), 900, 1),
+                        ReplyLocalUsers::new(context.host.clone(), c.nick.clone(), 845, 1000),
+                        ReplyGlobalUsers::new(context.host.clone(), c.nick.clone(), 9823, 23455),
+                        ReplyStatsDLine::new(context.host.clone(), c.nick.clone(), 9998, 9000, 99999)
+                    ];
+
+                    // TODO proper configurable MOTD
+                    let mut motd_replies = vec![ReplyMotd::new(context.host.clone(), c.nick.clone(), "Foobar".to_string())];
+                    welcome_storm.push(ReplyMotdStart::new(context.host.clone(), c.nick.clone()));
+                    welcome_storm.append(&mut motd_replies);
+                    welcome_storm.push(ReplyEndOfMotd::new(context.host.clone(), c.nick.clone()));
+                    
+                    Some(welcome_storm)
                 }
             };
 

@@ -77,14 +77,70 @@ impl Display for ReplyLUserUnknown {
     }
 }
 
+impl Display for ReplyLUserChannels {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} {} :channels formed", self.host, ReplyLUserChannels::NUMBER, self.nick, self.channels)
+    }
+}
+
+impl Display for ReplyLUserMe {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} :I have {} clients and {} servers", self.host, ReplyLUserMe::NUMBER, self.nick, self.clients, self.servers)
+    }
+}
+
+impl Display for ReplyLocalUsers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} {} {} :Current local users {}, max {}", self.host, ReplyLocalUsers::NUMBER, self.nick, self.current_local_users, self.max_local_users, self.current_local_users, self.max_local_users)
+    }
+}
+
+impl Display for ReplyGlobalUsers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} {} {} :Current global users {}, max {}", self.host, ReplyGlobalUsers::NUMBER, self.nick, self.current_global_users, self.max_global_users, self.current_global_users, self.max_global_users)
+    }
+}
+
+impl Display for ReplyStatsDLine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} :Highest connection count: {} ({} clients) ({} connections received)", self.host, ReplyStatsDLine::NUMBER, self.nick, self.connections_count, self.clients, self.connections_received)
+    }
+}
+
+impl Display for ReplyMotd {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} :- {}", self.host, ReplyMotd::NUMBER, self.nick, self.motd_line)
+    }
+}
+
+impl Display for ReplyMotdStart {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} :- {} Message of the Day - ", self.host, ReplyMotdStart::NUMBER, self.nick, self.host)
+    }
+}
+
+impl Display for ReplyEndOfMotd {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{} {} {} :End of /MOTD command.", self.host, ReplyEndOfMotd::NUMBER, self.nick)
+    }
+}
+
 impl ReplyMessage for ReplyWelcome { const NUMBER: &'static str = "001"; }
 impl ReplyMessage for ReplyYourHost { const NUMBER: &'static str = "002"; }
 impl ReplyMessage for ReplyCreated { const NUMBER: &'static str = "003"; }
 impl ReplyMessage for ReplyMyInfo { const NUMBER: &'static str = "004"; }
 impl ReplyMessage for ReplySupport { const NUMBER: &'static str = "005"; }
+impl ReplyMessage for ReplyStatsDLine { const NUMBER: &'static str = "250"; }
 impl ReplyMessage for ReplyLUserClient { const NUMBER: &'static str = "251"; }
 impl ReplyMessage for ReplyLUserOp { const NUMBER: &'static str = "252"; }
 impl ReplyMessage for ReplyLUserUnknown { const NUMBER: &'static str = "253"; }
+impl ReplyMessage for ReplyLUserChannels { const NUMBER: &'static str = "254"; }
+impl ReplyMessage for ReplyLUserMe { const NUMBER: &'static str = "255"; }
+impl ReplyMessage for ReplyLocalUsers { const NUMBER: &'static str = "265"; }
+impl ReplyMessage for ReplyGlobalUsers { const NUMBER: &'static str = "266"; }
+impl ReplyMessage for ReplyMotd { const NUMBER: &'static str = "372"; }
+impl ReplyMessage for ReplyMotdStart { const NUMBER: &'static str = "375"; }
+impl ReplyMessage for ReplyEndOfMotd { const NUMBER: &'static str = "376"; }
 
 pub struct ReplyWelcome {
     pub host: String,
@@ -139,6 +195,57 @@ pub struct ReplyLUserUnknown {
     pub unknown: u32
 }
 
+pub struct ReplyLUserChannels {
+    pub host: String,
+    pub nick: String,
+    pub channels: u32
+}
+
+pub struct ReplyLUserMe {
+    pub host: String,
+    pub nick: String,
+    pub clients: u32,
+    pub servers: u32
+}
+
+pub struct ReplyLocalUsers {
+    pub host: String,
+    pub nick: String,
+    pub current_local_users: u32,
+    pub max_local_users: u32
+}
+
+pub struct ReplyGlobalUsers {
+    pub host: String,
+    pub nick: String,
+    pub current_global_users: u32,
+    pub max_global_users: u32
+}
+
+pub struct ReplyStatsDLine {
+    pub host: String,
+    pub nick: String,
+    pub connections_count: u32,
+    pub clients: u32,
+    pub connections_received: u32
+}
+
+pub struct ReplyMotd {
+    pub host: String,
+    pub nick: String,
+    pub motd_line: String
+}
+
+pub struct ReplyMotdStart {
+    pub host: String,
+    pub nick: String
+}
+
+pub struct ReplyEndOfMotd {
+    pub host: String,
+    pub nick: String
+}
+
 impl ReplyWelcome {
     pub fn new(host: String, welcome_message: String, nick: String) -> Box<dyn Display> {
         Box::new(ReplyWelcome { host, welcome_message, nick })
@@ -184,6 +291,54 @@ impl ReplyLUserOp {
 impl ReplyLUserUnknown {
     pub fn new(host: String, nick: String, unknown: u32) -> Box<dyn Display> {
         Box::new(ReplyLUserUnknown { host, nick, unknown })
+    }
+}
+
+impl ReplyLUserChannels {
+    pub fn new(host: String, nick: String, channels: u32) -> Box<dyn Display> {
+        Box::new(ReplyLUserChannels { host, nick, channels })
+    }
+}
+
+impl ReplyLUserMe {
+    pub fn new(host: String, nick: String, clients: u32, servers: u32) -> Box<dyn Display> {
+        Box::new(ReplyLUserMe { host, nick, clients, servers })
+    }
+}
+
+impl ReplyLocalUsers {
+    pub fn new(host: String, nick: String, current_local_users: u32, max_local_users: u32) -> Box<dyn Display> {
+        Box::new(ReplyLocalUsers { host, nick, current_local_users, max_local_users })
+    }
+}
+
+impl ReplyGlobalUsers {
+    pub fn new(host: String, nick: String, current_global_users: u32, max_global_users: u32) -> Box<dyn Display> {
+        Box::new(ReplyGlobalUsers { host, nick, current_global_users, max_global_users })
+    }
+}
+
+impl ReplyStatsDLine {
+    pub fn new(host: String, nick: String, connections_count: u32, clients: u32, connections_received: u32) -> Box<dyn Display> {
+        Box::new(ReplyStatsDLine { host, nick, connections_count, clients, connections_received })
+    }
+}
+
+impl ReplyMotdStart {
+    pub fn new(host: String, nick: String) -> Box<dyn Display> {
+        Box::new(ReplyMotdStart { host, nick })
+    }
+}
+
+impl ReplyEndOfMotd {
+    pub fn new(host: String, nick: String) -> Box<dyn Display> {
+        Box::new(ReplyEndOfMotd { host, nick })
+    }
+}
+
+impl ReplyMotd {
+    pub fn new(host: String, nick: String, motd_line: String) -> Box<dyn Display> {
+        Box::new(ReplyMotd { host, nick, motd_line })
     }
 }
 
@@ -385,5 +540,69 @@ fn rpl_luserunknown_prints_correctly() {
     let reply = ReplyLUserUnknown::new("localhost".to_string(), "JIM".to_string(), 7);
     let actual = reply.to_string();
     let expected = format!(":localhost 253 JIM 7 :unknown connection(s)");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_luserchannels_prints_correctly() {
+    let reply = ReplyLUserChannels::new("localhost".to_string(), "JIM".to_string(), 9999);
+    let actual = reply.to_string();
+    let expected = format!(":localhost 254 JIM 9999 :channels formed");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_luserme_prints_correctly() {
+    let reply = ReplyLUserMe::new("localhost".to_string(), "JIM".to_string(), 900, 1);
+    let actual = reply.to_string();
+    let expected = format!(":localhost 255 JIM :I have 900 clients and 1 servers");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_localusers_prints_correctly() {
+    let reply = ReplyLocalUsers::new("localhost".to_string(), "JIM".to_string(), 845, 1000);
+    let actual = reply.to_string();
+    let expected = format!(":localhost 265 JIM 845 1000 :Current local users 845, max 1000");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_globalusers_prints_correctly() {
+    let reply = ReplyGlobalUsers::new("localhost".to_string(), "JIM".to_string(), 9823, 23455);
+    let actual = reply.to_string();
+    let expected = format!(":localhost 266 JIM 9823 23455 :Current global users 9823, max 23455");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_statsdline_prints_correctly() {
+    let reply = ReplyStatsDLine::new("localhost".to_string(), "JIM".to_string(), 9998, 9000, 99999);
+    let actual = reply.to_string();
+    let expected = format!(":localhost 250 JIM :Highest connection count: 9998 (9000 clients) (99999 connections received)");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_motdstart_prints_correctly() {
+    let reply = ReplyMotdStart::new("localhost".to_string(), "JIM".to_string());
+    let actual = reply.to_string();
+    let expected = format!(":localhost 375 JIM :- localhost Message of the Day - ");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_motdend_prints_correctly() {
+    let reply = ReplyEndOfMotd::new("localhost".to_string(), "JIM".to_string());
+    let actual = reply.to_string();
+    let expected = format!(":localhost 376 JIM :End of /MOTD command.");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn rpl_motd_prints_correctly() {
+    let reply = ReplyMotd::new("localhost".to_string(), "JIM".to_string(), "Foobar".to_string());
+    let actual = reply.to_string();
+    let expected = format!(":localhost 372 JIM :- Foobar");
     assert_eq!(expected, actual);
 }
