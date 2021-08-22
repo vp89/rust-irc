@@ -2,7 +2,7 @@ pub mod message_parsing;
 
 use std::{io::{self, Read, Write}, net::{TcpListener, TcpStream}, str::FromStr, thread};
 use chrono::{DateTime, Utc};
-use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplyWelcome, ReplyYourHost, ReplyCreated, ReplyMyInfo, ReplySupport};
+use crate::message_parsing::*;
 
 fn main() -> io::Result<()> {
     let host = format!("localhost");
@@ -78,15 +78,14 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                         ReplyYourHost::new(context.host.clone(), context.version.clone(), c.nick.clone()),
                         ReplyCreated::new(context.host.clone(), c.nick.clone(), "This server was created".to_string(), context.start_time.clone()),
                         ReplyMyInfo::new(context.host.clone(), c.nick.clone(), context.version.clone(), "r".to_string(), "i".to_string()),
-                        ReplySupport::new(context.host.clone(), c.nick.clone(), 32 /* TODO make this configurable */)
+                        ReplySupport::new(context.host.clone(), c.nick.clone(), 32 /* TODO make this configurable */),
+                        ReplyLUserClient::new(context.host.clone(), c.nick.clone(), 100, 20, 1 /* TODO make these live update */),
+                        ReplyLUserOp::new(context.host.clone(), c.nick.clone(), 1337),
+                        ReplyLUserUnknown::new(context.host.clone(), c.nick.clone(), 7),
                     ])
                     /*
                     let rplmsgs = format!(
-                        "
-                        :localhost 251 {nick} :There are 100 users and 20 invisible on 1 servers\r\n
-                        :localhost 252 {nick} 1337 :IRC Operators online\r\n
-                        :localhost 253 {nick} 7 :unknown connection(s)\r\n
-                        :localhost 254 {nick} 9999 :channels formed\r\n
+                        ":localhost 254 {nick} 9999 :channels formed\r\n
                         :localhost 255 {nick} :I have 900 clients and 1 servers\r\n
                         :localhost 265 {nick} 845 1000 :Current local users 845, max 1000\r\n
                         :localhost 266 {nick} 9823 23455 :Current global users 9823, max 23455\r\n
