@@ -1,8 +1,10 @@
 pub mod message_parsing;
+pub mod replies;
 
 use std::{io::{self, Read, Write}, net::{TcpListener, TcpStream}, str::FromStr, thread};
 use chrono::{DateTime, Utc};
 use crate::message_parsing::*;
+use crate::replies::*;
 
 fn main() -> io::Result<()> {
     let host = format!("localhost");
@@ -48,29 +50,23 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
         // and sends responses based on logic or until the connection has died
         // there also needs to be a ping loop going on that can stop this loop too
         let mut buffer = [0;512];
-        stream.read(&mut buffer)?;
-        let raw_payload = std::str::from_utf8(&buffer)
+        let bytes_read = stream.read(&mut buffer)?; // TcpStream
+        let raw_payload = std::str::from_utf8(&buffer[..bytes_read])
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         println!("RECEIVED {}", raw_payload);
 
-        let raw_messages = raw_payload.lines();
-
-        // is there a way to get count without consuming the iterator
-        //println!("SPLIT INTO {} MESSAGES", raw_messages.by_ref().count());
+        let raw_messages = raw_payload.split_terminator("\r\n");
 
         for raw_message in raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
 
-            println!("RAW MESSAGE {:?}", message);
-
             let replies = match &message.command {
                 ClientToServerCommand::Quit => {
-                    println!("RECEIVED QUIT");
                     return Ok(()); // is using return not idiomatic?? Look into that
                 }
                 ClientToServerCommand::Unhandled => {
-                    println!("MESSAGE UNHANDLED {:?}", message);
+                    println!("MESSAGE UNHANDLED {:?} {}", message, raw_message);
                     None
                 },
                 ClientToServerCommand::Nick(c) => {
