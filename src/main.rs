@@ -54,16 +54,17 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
 
         println!("RECEIVED {}", raw_payload);
 
-        let mut raw_messages = raw_payload.lines();
+        let raw_messages = raw_payload.lines();
 
-        println!("SPLIT INTO {} MESSAGES", raw_messages.by_ref().count());
+        // is there a way to get count without consuming the iterator
+        //println!("SPLIT INTO {} MESSAGES", raw_messages.by_ref().count());
 
         for raw_message in raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
 
             println!("RAW MESSAGE {:?}", message);
 
-            let replies = match message.command {
+            let replies = match &message.command {
                 ClientToServerCommand::Quit => {
                     println!("RECEIVED QUIT");
                     return Ok(()); // is using return not idiomatic?? Look into that
@@ -73,27 +74,32 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                     None
                 },
                 ClientToServerCommand::Nick(c) => {
+                    let host = &context.host;
+                    let version = &context.version;
+                    let nick = &c.nick;
+                    let created_at = &context.start_time;
+
                     let mut welcome_storm = vec![
-                        ReplyWelcome::new(context.host.clone(), "WELCOME TO THE SERVER".to_string(), c.nick.clone()),
-                        ReplyYourHost::new(context.host.clone(), context.version.clone(), c.nick.clone()),
-                        ReplyCreated::new(context.host.clone(), c.nick.clone(), "This server was created".to_string(), context.start_time.clone()),
-                        ReplyMyInfo::new(context.host.clone(), c.nick.clone(), context.version.clone(), "r".to_string(), "i".to_string()),
-                        ReplySupport::new(context.host.clone(), c.nick.clone(), 32 /* TODO make this configurable */),
-                        ReplyLUserClient::new(context.host.clone(), c.nick.clone(), 100, 20, 1 /* TODO make these live update */),
-                        ReplyLUserOp::new(context.host.clone(), c.nick.clone(), 1337),
-                        ReplyLUserUnknown::new(context.host.clone(), c.nick.clone(), 7),
-                        ReplyLUserChannels::new(context.host.clone(), c.nick.clone(), 9999),
-                        ReplyLUserMe::new(context.host.clone(), c.nick.clone(), 900, 1),
-                        ReplyLocalUsers::new(context.host.clone(), c.nick.clone(), 845, 1000),
-                        ReplyGlobalUsers::new(context.host.clone(), c.nick.clone(), 9823, 23455),
-                        ReplyStatsDLine::new(context.host.clone(), c.nick.clone(), 9998, 9000, 99999)
+                        Reply::Welcome { host, nick },
+                        Reply::YourHost { host, nick, version },
+                        Reply::Created { host, nick, created_at },
+                        Reply::MyInfo { host, nick, version, user_modes: "r", channel_modes: "i" },
+                        Reply::Support { host, nick, channel_len: 32 },
+                        Reply::LuserClient { host, nick, visible_users: 100, invisible_users: 20, servers: 1 },
+                        Reply::LuserOp { host, nick, operators: 1337 },
+                        Reply::LuserUnknown { host, nick, unknown: 7 },
+                        Reply::LuserChannels { host, nick, channels: 9999 },
+                        Reply::LuserMe { host, nick, clients: 900, servers: 1 },
+                        Reply::LocalUsers { host, nick, current: 845, max: 1000 },
+                        Reply::GlobalUsers { host, nick, current: 9832, max: 23455 },
+                        Reply::StatsDLine { host, nick, connections: 9998, clients: 9000, received: 99999 }
                     ];
 
                     // TODO proper configurable MOTD
-                    let mut motd_replies = vec![ReplyMotd::new(context.host.clone(), c.nick.clone(), "Foobar".to_string())];
-                    welcome_storm.push(ReplyMotdStart::new(context.host.clone(), c.nick.clone()));
+                    let mut motd_replies = vec![ Reply::Motd { host, nick, line: "Foobar" }];
+                    welcome_storm.push(Reply::MotdStart { host, nick });
                     welcome_storm.append(&mut motd_replies);
-                    welcome_storm.push(ReplyEndOfMotd::new(context.host.clone(), c.nick.clone()));
+                    welcome_storm.push(Reply::EndOfMotd { host, nick });
                     
                     Some(welcome_storm)
                 }
