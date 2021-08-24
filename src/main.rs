@@ -1,7 +1,7 @@
 pub mod message_parsing;
 pub mod replies;
 
-use std::{io::{self, Read, Write}, net::{TcpListener, TcpStream}, str::FromStr, thread};
+use std::{cmp::min, io::{self, Read, Write}, net::{TcpListener, TcpStream}, str::{FromStr}, thread};
 use chrono::{DateTime, Utc};
 use crate::message_parsing::*;
 use crate::replies::*;
@@ -44,21 +44,54 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
+// TODO figure out how to structure this code
+// take a dyn Read so we can mock it for unit tests
+fn get_messages(stream: &mut dyn Read) -> io::Result<Vec<String>> {
+    let mut buffer = [0;512];
+    let bytes_read = stream.read(&mut buffer)?; // TcpStream
+    let raw_payload = std::str::from_utf8(&buffer[..bytes_read])
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
+        .to_owned();
+
+    println!("RECEIVED {}", raw_payload);
+
+    // map to owned String so the ownership can be moved out of this function scope
+    let raw_messages = raw_payload.split_terminator("\r\n").map(|s| s.to_string()).collect();
+    Ok(raw_messages)
+}
+
+#[test]
+fn get_messages_reads_from_buffer() {
+    let message = b"Hello world\r\n".to_vec();
+    let mut mocked_stream = MockTcpStream {
+        bytes_to_read: message
+    };
+
+    let result = get_messages(&mut mocked_stream).unwrap();
+    assert_eq!(1, result.len());
+    assert_eq!("Hello world", result.first().unwrap());
+}
+
+struct MockTcpStream {
+    bytes_to_read: Vec<u8>
+}
+
+impl Read for MockTcpStream {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let size: usize = min(self.bytes_to_read.len(), buf.len());
+        buf[..size].copy_from_slice(&self.bytes_to_read[..size]);
+        Ok(size)
+    }
+}
+
 fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Result<()> {
+    // connection handler just runs a loop that reads bytes off the stream
+    // and sends responses based on logic or until the connection has died
+    // there also needs to be a ping loop going on that can stop this loop too
     loop {
-        // connection handler just runs a loop that reads bytes off the stream
-        // and sends responses based on logic or until the connection has died
-        // there also needs to be a ping loop going on that can stop this loop too
-        let mut buffer = [0;512];
-        let bytes_read = stream.read(&mut buffer)?; // TcpStream
-        let raw_payload = std::str::from_utf8(&buffer[..bytes_read])
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let raw_messages = get_messages(&mut stream)?;
 
-        println!("RECEIVED {}", raw_payload);
-
-        let raw_messages = raw_payload.split_terminator("\r\n");
-
-        for raw_message in raw_messages {
+        for raw_message in &raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
 
             let replies = match &message.command {
