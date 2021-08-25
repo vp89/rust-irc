@@ -1,7 +1,7 @@
 pub mod message_parsing;
 pub mod replies;
 
-use std::{cmp::min, io::{self, Read, Write}, net::{TcpListener, TcpStream}, str::{FromStr}, thread};
+use std::{collections::VecDeque, io::{self, BufRead, Read, Write}, net::{TcpListener, TcpStream}, str::{FromStr}, thread};
 use chrono::{DateTime, Utc};
 use crate::message_parsing::*;
 use crate::replies::*;
@@ -44,43 +44,88 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-// TODO figure out how to structure this code
-// take a dyn Read so we can mock it for unit tests
-fn get_messages(stream: &mut dyn Read) -> io::Result<Vec<String>> {
-    let mut buffer = [0;512];
-    let bytes_read = stream.read(&mut buffer)?; // TcpStream
-    let raw_payload = std::str::from_utf8(&buffer[..bytes_read])
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
-        .to_owned();
+fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
+    let bytes = reader.fill_buf()?;
+    let bytes_read = bytes.len();
 
-    println!("RECEIVED {}", raw_payload);
+    match std::str::from_utf8(bytes) {
+        Ok(s) => {
+            let raw_payload = s.to_owned();
 
-    // map to owned String so the ownership can be moved out of this function scope
-    let raw_messages = raw_payload.split_terminator("\r\n").map(|s| s.to_string()).collect();
-    Ok(raw_messages)
+            println!("RECEIVED {}", raw_payload);
+
+            // map to owned String so the ownership can be moved out of this function scope
+            let raw_messages = raw_payload.split_terminator("\r\n").map(|s| s.to_string()).collect();
+            reader.consume(bytes_read);
+            Ok(raw_messages)
+        },
+        Err(e) => {
+            Err(io::Error::new(io::ErrorKind::InvalidData, e))
+        }
+    }
 }
 
 #[test]
 fn get_messages_reads_from_buffer() {
-    let message = b"Hello world\r\n".to_vec();
-    let mut mocked_stream = MockTcpStream {
-        bytes_to_read: message
+    let fake_buffer = b"Hello world\r\n".to_vec();
+    let mut faked_responses = VecDeque::new();
+    faked_responses.push_back(13);
+    let mut faked_bufreader = FakeBufReader {
+        fake_buffer,
+        faked_responses
     };
 
-    let result = get_messages(&mut mocked_stream).unwrap();
+    let result = get_messages(&mut faked_bufreader).unwrap();
     assert_eq!(1, result.len());
     assert_eq!("Hello world", result.first().unwrap());
+    assert_eq!(0, faked_bufreader.fake_buffer.len());
 }
 
-struct MockTcpStream {
-    bytes_to_read: Vec<u8>
+// TODO finish this test
+/*
+#[test]
+fn get_messages_larger_than_maxlen_throwsawaybytes() {
+    let fake_buffer = b"Hello world".repeat(47).to_vec();
+    let mut faked_responses = VecDeque::new();
+    faked_responses.push_back(512);
+    faked_responses.push_back(5);
+    let mut faked_bufreader = FakeBufReader {
+        fake_buffer,
+        faked_responses
+    };
+
+    let result = get_messages(&mut faked_bufreader).unwrap();
+    assert_eq!(1000, result.len());
+    assert_eq!("Hello world", result.first().unwrap());
+}
+*/
+
+struct FakeBufReader {
+    fake_buffer: Vec<u8>,
+    faked_responses: VecDeque<usize> // implement as a queue so you can mock which bytes returned on each read call
 }
 
-impl Read for MockTcpStream {
+impl BufRead for FakeBufReader {
+    fn fill_buf(&mut self) -> io::Result<&[u8]> {
+        let result = match self.faked_responses.pop_front() {
+            Some(b) => {
+                Ok(&self.fake_buffer[..b])
+            },
+            None => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "bad test setup"))
+        };
+
+        result
+    }
+
+    fn consume(&mut self, amt: usize) {
+        self.fake_buffer.drain(..amt);
+        ()
+    }
+}
+
+impl Read for FakeBufReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let size: usize = min(self.bytes_to_read.len(), buf.len());
-        buf[..size].copy_from_slice(&self.bytes_to_read[..size]);
-        Ok(size)
+        todo!()
     }
 }
 
@@ -88,8 +133,13 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
     // there also needs to be a ping loop going on that can stop this loop too
+
+    let mut write_handle = stream.try_clone()?;
+    let mut reader = io::BufReader::new(stream);
+
     loop {
-        let raw_messages = get_messages(&mut stream)?;
+        
+        let raw_messages = get_messages(&mut reader)?;
 
         for raw_message in &raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
@@ -145,8 +195,8 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                     }
 
                     println!("SENDING {}", reply);
-                    stream.write(reply.as_bytes())?;
-                    stream.flush()?;
+                    write_handle.write(reply.as_bytes())?;
+                    write_handle.flush()?;
                 }
             }
         }
