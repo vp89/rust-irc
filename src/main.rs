@@ -55,9 +55,15 @@ fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
             println!("RECEIVED {}", raw_payload);
 
             // map to owned String so the ownership can be moved out of this function scope
-            let raw_messages = raw_payload.split_terminator("\r\n").map(|s| s.to_string()).collect();
-            reader.consume(bytes_read);
-            Ok(raw_messages)
+            let mut split_messages: Vec<String> = raw_payload.split("\r\n").map(|s| s.to_string()).collect();
+
+            if split_messages.len() <= 1 {
+                Err(io::Error::new(io::ErrorKind::InvalidData, "No message separator found in buffer"))
+            } else {
+                split_messages.truncate(split_messages.len() - 1);
+                reader.consume(bytes_read);
+                Ok(split_messages)
+            }
         },
         Err(e) => {
             Err(io::Error::new(io::ErrorKind::InvalidData, e))
@@ -80,6 +86,33 @@ fn get_messages_reads_from_buffer() {
     assert_eq!("Hello world", result.first().unwrap());
     assert_eq!(0, faked_bufreader.fake_buffer.len());
 }
+
+#[test]
+fn get_messages_nolineterminator_errors() {
+    let fake_buffer = b"Hello world".to_vec();
+    let mut faked_responses = VecDeque::new();
+    faked_responses.push_back(11);
+    let mut faked_bufreader = FakeBufReader {
+        fake_buffer,
+        faked_responses
+    };
+
+    get_messages(&mut faked_bufreader).expect_err("Testing expect an error to be returned here");
+}
+
+#[test]
+fn get_messages_emptybuffer_errors() {
+    let fake_buffer = b"".to_vec();
+    let mut faked_responses = VecDeque::new();
+    faked_responses.push_back(0);
+    let mut faked_bufreader = FakeBufReader {
+        fake_buffer,
+        faked_responses
+    };
+
+    get_messages(&mut faked_bufreader).expect_err("Testing expect an error to be returned here");
+}
+
 
 // TODO finish this test
 /*
@@ -135,7 +168,7 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
     // there also needs to be a ping loop going on that can stop this loop too
 
     let mut write_handle = stream.try_clone()?;
-    let mut reader = io::BufReader::new(stream);
+    let mut reader = io::BufReader::with_capacity(512, stream);
 
     loop {
         
