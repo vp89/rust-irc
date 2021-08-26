@@ -57,8 +57,11 @@ fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
             // map to owned String so the ownership can be moved out of this function scope
             let mut split_messages: Vec<String> = raw_payload.split("\r\n").map(|s| s.to_string()).collect();
 
+            // TODO create own Error kinds/type??
             if split_messages.len() <= 1 {
-                Err(io::Error::new(io::ErrorKind::InvalidData, "No message separator found in buffer"))
+                Err(io::Error::new(io::ErrorKind::InvalidData, "No message separator provided"))
+            } else if split_messages.last().unwrap_or(&format!("BLAH")) != &format!("") {
+                Err(io::Error::new(io::ErrorKind::InvalidData, "Last message did not have expected separator"))
             } else {
                 split_messages.truncate(split_messages.len() - 1);
                 reader.consume(bytes_read);
@@ -88,6 +91,37 @@ fn get_messages_reads_from_buffer() {
 }
 
 #[test]
+fn get_messages_multiplemessages_reads_from_buffer() {
+    let fake_buffer = b"Hello world\r\nFoobar\r\n".to_vec();
+    let mut faked_responses = VecDeque::new();
+    faked_responses.push_back(21);
+    let mut faked_bufreader = FakeBufReader {
+        fake_buffer,
+        faked_responses
+    };
+
+    let result = get_messages(&mut faked_bufreader).unwrap();
+    assert_eq!(2, result.len());
+    assert_eq!("Hello world", result.first().unwrap());
+    assert_eq!("Foobar", result[1]);
+    assert_eq!(0, faked_bufreader.fake_buffer.len());
+}
+
+#[test]
+fn get_messages_multiplemessages_noterminator_errors() {
+    let fake_buffer = b"Hello world\r\nFoobar".to_vec();
+    let mut faked_responses = VecDeque::new();
+    faked_responses.push_back(19);
+    let mut faked_bufreader = FakeBufReader {
+        fake_buffer,
+        faked_responses
+    };
+
+    let result = get_messages(&mut faked_bufreader).expect_err("Testing expect an error to be returned here");
+    assert_eq!("Last message did not have expected separator", result.to_string());
+}
+
+#[test]
 fn get_messages_nolineterminator_errors() {
     let fake_buffer = b"Hello world".to_vec();
     let mut faked_responses = VecDeque::new();
@@ -97,7 +131,8 @@ fn get_messages_nolineterminator_errors() {
         faked_responses
     };
 
-    get_messages(&mut faked_bufreader).expect_err("Testing expect an error to be returned here");
+    let result = get_messages(&mut faked_bufreader).expect_err("Testing expect an error to be returned here");
+    assert_eq!("No message separator provided", result.to_string());
 }
 
 #[test]
@@ -112,26 +147,6 @@ fn get_messages_emptybuffer_errors() {
 
     get_messages(&mut faked_bufreader).expect_err("Testing expect an error to be returned here");
 }
-
-
-// TODO finish this test
-/*
-#[test]
-fn get_messages_larger_than_maxlen_throwsawaybytes() {
-    let fake_buffer = b"Hello world".repeat(47).to_vec();
-    let mut faked_responses = VecDeque::new();
-    faked_responses.push_back(512);
-    faked_responses.push_back(5);
-    let mut faked_bufreader = FakeBufReader {
-        fake_buffer,
-        faked_responses
-    };
-
-    let result = get_messages(&mut faked_bufreader).unwrap();
-    assert_eq!(1000, result.len());
-    assert_eq!("Hello world", result.first().unwrap());
-}
-*/
 
 struct FakeBufReader {
     fake_buffer: Vec<u8>,
