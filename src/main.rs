@@ -7,11 +7,11 @@ use crate::message_parsing::*;
 use crate::replies::*;
 
 fn main() -> io::Result<()> {
-    let host = format!("localhost");
+    let host = "localhost".to_string();
     let context = ServerContext {
         start_time: Utc::now(),
         host: host.clone(),
-        version: format!("0.0.1")
+        version: "0.0.1".to_string()
     };
 
     println!("STARTING SERVER ON {}:6667", host);
@@ -60,7 +60,7 @@ fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
             // TODO create own Error kinds/type??
             if split_messages.len() <= 1 {
                 Err(io::Error::new(io::ErrorKind::InvalidData, "No message separator provided"))
-            } else if split_messages.last().unwrap_or(&format!("BLAH")) != &format!("") {
+            } else if split_messages.last().unwrap_or(&"BLAH".to_string()) != &format!("") {
                 Err(io::Error::new(io::ErrorKind::InvalidData, "Last message did not have expected separator"))
             } else {
                 split_messages.truncate(split_messages.len() - 1);
@@ -155,29 +155,28 @@ struct FakeBufReader {
 
 impl BufRead for FakeBufReader {
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
-        let result = match self.faked_responses.pop_front() {
+        match self.faked_responses.pop_front() {
             Some(b) => {
                 Ok(&self.fake_buffer[..b])
             },
             None => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "bad test setup"))
-        };
-
-        result
+        }
     }
 
     fn consume(&mut self, amt: usize) {
         self.fake_buffer.drain(..amt);
-        ()
     }
 }
 
+// just adding this to make compiler happy, for testing we only need
+// the methods in BufRead
 impl Read for FakeBufReader {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
         todo!()
     }
 }
 
-fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Result<()> {
+fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()> {
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
     // there also needs to be a ping loop going on that can stop this loop too
@@ -243,7 +242,7 @@ fn handle_connection(mut stream: TcpStream, context: ServerContext) -> io::Resul
                     }
 
                     println!("SENDING {}", reply);
-                    write_handle.write(reply.as_bytes())?;
+                    write_handle.write_all(reply.as_bytes())?;
                     write_handle.flush()?;
                 }
             }
