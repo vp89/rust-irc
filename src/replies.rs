@@ -17,7 +17,9 @@ pub enum Reply<'a> {
     GlobalUsers { host: &'a str, nick: &'a str, current: u32, max: u32 },
     Motd { host: &'a str, nick: &'a str, line: &'a str },
     MotdStart { host: &'a str, nick: &'a str },
-    EndOfMotd { host: &'a str, nick: &'a str }
+    EndOfMotd { host: &'a str, nick: &'a str },
+    // TODO should these non-numerics be in a different file??
+    Pong { host: &'a str, token: String }
 }
 
 impl Display for Reply<'_> {
@@ -48,14 +50,15 @@ impl Display for Reply<'_> {
             },
             Reply::Motd { host, nick, line } => write!(f, ":{} 372 {} :- {}", host, nick, line),
             Reply::MotdStart { host, nick } => write!(f, ":{} 375 {} :- {} Message of the Day -", host, nick, host),
-            Reply::EndOfMotd { host, nick } => write!(f, ":{} 376 {} :End of /MOTD command.", host, nick)
+            Reply::EndOfMotd { host, nick } => write!(f, ":{} 376 {} :End of /MOTD command.", host, nick),
+            Reply::Pong { host, token } => write!(f, ":{} PONG {} :{}", host, host, token)
         }
     }
 }
 
 
 #[test]
-fn rpl_welcome_prints_correctly() {
+fn welcome_prints_correctly() {
     let reply = Reply::Welcome { host: "localhost", nick: "JIM" };
     let actual = reply.to_string();
     let expected = ":localhost 001 JIM :Welcome to the server JIM";
@@ -63,7 +66,7 @@ fn rpl_welcome_prints_correctly() {
 }
 
 #[test]
-fn rpl_yourhost_prints_correctly() {
+fn yourhost_prints_correctly() {
     let reply = Reply::YourHost { host: "localhost", nick: "JIM", version: "0.0.1" };
     let actual = reply.to_string();
     let expected = ":localhost 002 JIM :Your host is localhost, running version 0.0.1";
@@ -71,7 +74,7 @@ fn rpl_yourhost_prints_correctly() {
 }
 
 #[test]
-fn rpl_created_prints_correctly() {
+fn created_prints_correctly() {
     let now = Utc::now();
     let reply = Reply::Created { host: "localhost", nick: "JIM", created_at: &now };
     let actual = reply.to_string();
@@ -80,7 +83,7 @@ fn rpl_created_prints_correctly() {
 }
 
 #[test]
-fn rpl_myinfo_prints_correctly() {
+fn myinfo_prints_correctly() {
     let reply = Reply::MyInfo { host: "localhost", nick: "JIM", version: "0.0.1", user_modes: "r", channel_modes: "i" };
     let actual = reply.to_string();
     let expected = format!(":localhost 004 JIM localhost 0.0.1 r i");
@@ -88,7 +91,7 @@ fn rpl_myinfo_prints_correctly() {
 }
 
 #[test]
-fn rpl_isupport_prints_correctly() {
+fn support_prints_correctly() {
     let reply = Reply::Support { host: "localhost", nick: "JIM", channel_len: 100 };
     let actual = reply.to_string();
     let expected = format!(":localhost 005 JIM CHANNELLEN=100 :are supported by this server");
@@ -96,7 +99,7 @@ fn rpl_isupport_prints_correctly() {
 }
 
 #[test]
-fn rpl_luserclient_prints_correctly() {
+fn luserclient_prints_correctly() {
     let reply = Reply::LuserClient { host: "localhost", nick: "JIM", visible_users: 100, invisible_users: 20, servers: 1 };
     let actual = reply.to_string();
     let expected = format!(":localhost 251 JIM :There are 100 users and 20 invisible on 1 servers");
@@ -104,7 +107,7 @@ fn rpl_luserclient_prints_correctly() {
 }
 
 #[test]
-fn rpl_luserop_prints_correctly() {
+fn luserop_prints_correctly() {
     let reply = Reply::LuserOp { host: "localhost", nick: "JIM", operators: 1337 };
     let actual = reply.to_string();
     let expected = format!(":localhost 252 JIM 1337 :IRC Operators online");
@@ -112,7 +115,7 @@ fn rpl_luserop_prints_correctly() {
 }
 
 #[test]
-fn rpl_luserunknown_prints_correctly() {
+fn luserunknown_prints_correctly() {
     let reply = Reply::LuserUnknown { host: "localhost", nick: "JIM", unknown: 7 };
     let actual = reply.to_string();
     let expected = format!(":localhost 253 JIM 7 :unknown connection(s)");
@@ -120,7 +123,7 @@ fn rpl_luserunknown_prints_correctly() {
 }
 
 #[test]
-fn rpl_luserchannels_prints_correctly() {
+fn luserchannels_prints_correctly() {
     let reply = Reply::LuserChannels { host: "localhost", nick: "JIM", channels: 9999 };
     let actual = reply.to_string();
     let expected = format!(":localhost 254 JIM 9999 :channels formed");
@@ -128,7 +131,7 @@ fn rpl_luserchannels_prints_correctly() {
 }
 
 #[test]
-fn rpl_luserme_prints_correctly() {
+fn luserme_prints_correctly() {
     let reply = Reply::LuserMe { host: "localhost", nick: "JIM", clients: 900, servers: 1 };
     let actual = reply.to_string();
     let expected = format!(":localhost 255 JIM :I have 900 clients and 1 servers");
@@ -136,7 +139,7 @@ fn rpl_luserme_prints_correctly() {
 }
 
 #[test]
-fn rpl_localusers_prints_correctly() {
+fn localusers_prints_correctly() {
     let reply = Reply::LocalUsers { host: "localhost", nick: "JIM", current: 845, max: 1000 };
     let actual = reply.to_string();
     let expected = format!(":localhost 265 JIM 845 1000 :Current local users 845, max 1000");
@@ -144,7 +147,7 @@ fn rpl_localusers_prints_correctly() {
 }
 
 #[test]
-fn rpl_globalusers_prints_correctly() {
+fn globalusers_prints_correctly() {
     let reply = Reply::GlobalUsers { host: "localhost", nick: "JIM", current: 9823, max: 23455 };
     let actual = reply.to_string();
     let expected = format!(":localhost 266 JIM 9823 23455 :Current global users 9823, max 23455");
@@ -152,7 +155,7 @@ fn rpl_globalusers_prints_correctly() {
 }
 
 #[test]
-fn rpl_statsdline_prints_correctly() {
+fn statsdline_prints_correctly() {
     let reply = Reply::StatsDLine { host: "localhost", nick: "JIM", connections: 9998, clients: 9000, received: 99999 };
     let actual = reply.to_string();
     let expected = format!(":localhost 250 JIM :Highest connection count: 9998 (9000 clients) (99999 connections received)");
@@ -160,7 +163,7 @@ fn rpl_statsdline_prints_correctly() {
 }
 
 #[test]
-fn rpl_motdstart_prints_correctly() {
+fn motdstart_prints_correctly() {
     let reply = Reply::MotdStart { host: "localhost", nick: "JIM" };
     let actual = reply.to_string();
     let expected = format!(":localhost 375 JIM :- localhost Message of the Day -");
@@ -168,7 +171,7 @@ fn rpl_motdstart_prints_correctly() {
 }
 
 #[test]
-fn rpl_motdend_prints_correctly() {
+fn endofmotd_prints_correctly() {
     let reply = Reply::EndOfMotd { host: "localhost", nick: "JIM" };
     let actual = reply.to_string();
     let expected = format!(":localhost 376 JIM :End of /MOTD command.");
@@ -176,9 +179,17 @@ fn rpl_motdend_prints_correctly() {
 }
 
 #[test]
-fn rpl_motd_prints_correctly() {
+fn motd_prints_correctly() {
     let reply = Reply::Motd { host: "localhost", nick: "JIM", line: "Foobar" };
     let actual = reply.to_string();
     let expected = format!(":localhost 372 JIM :- Foobar");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn pong_prints_correctly() {
+    let reply = Reply::Pong { host: "localhost", token: "LAG1238948394".to_string() };
+    let actual = reply.to_string();
+    let expected = format!(":localhost PONG localhost :LAG1238948394");
     assert_eq!(expected, actual);
 }

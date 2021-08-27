@@ -11,12 +11,18 @@ pub struct ClientToServerMessage {
 pub enum ClientToServerCommand {
     Unhandled,
     Nick(NickCommand),
+    Ping(PingCommand),
     Quit
 }
 
 #[derive(Debug, PartialEq)]
 pub struct NickCommand {
     pub nick: String
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PingCommand {
+    pub token: String
 }
 
 #[derive(Debug)]
@@ -65,6 +71,12 @@ impl FromStr for ClientToServerMessage {
                 let nick = words.next().unwrap().to_owned(); // TODO handle error
                 ClientToServerCommand::Nick(NickCommand {
                     nick
+                })
+            },
+            "PING" => {
+                let token = words.next().unwrap().to_owned(); // TODO handle error
+                ClientToServerCommand::Ping(PingCommand {
+                    token
                 })
             },
             "QUIT" => ClientToServerCommand::Quit,

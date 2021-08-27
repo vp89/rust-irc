@@ -191,6 +191,10 @@ fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()
         for raw_message in &raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
 
+            let host = &context.host;
+            let version = &context.version;
+            let created_at = &context.start_time;
+
             let replies = match &message.command {
                 ClientToServerCommand::Quit => {
                     return Ok(()); // is using return not idiomatic?? Look into that
@@ -199,11 +203,11 @@ fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()
                     println!("MESSAGE UNHANDLED {:?} {}", message, raw_message);
                     None
                 },
-                ClientToServerCommand::Nick(c) => {
-                    let host = &context.host;
-                    let version = &context.version;
+                ClientToServerCommand::Ping(c) => {
+                    Some(vec![ Reply::Pong { host, token: c.token.clone() } ])
+                }
+                ClientToServerCommand::Nick(c) => {                    
                     let nick = &c.nick;
-                    let created_at = &context.start_time;
 
                     let mut welcome_storm = vec![
                         Reply::Welcome { host, nick },
