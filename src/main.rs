@@ -1,7 +1,7 @@
 pub mod message_parsing;
 pub mod replies;
 
-use std::{collections::VecDeque, io::{self, BufRead, ErrorKind, Read, Write}, net::{TcpListener, TcpStream}, str::{FromStr}, thread, time::{Duration, Instant}};
+use std::{collections::VecDeque, io::{self, BufRead, ErrorKind, Read, Write}, net::{Shutdown, TcpListener, TcpStream}, str::{FromStr}, thread, time::{Duration, Instant}};
 use chrono::{DateTime, Utc};
 use crate::message_parsing::*;
 use crate::replies::*;
@@ -22,32 +22,35 @@ fn main() -> io::Result<()> {
 
     for connection_attempt in listener.incoming() {
         let server_context = context.clone();
+
         match connection_attempt {
             Ok(stream) => {
                 connection_handles.push(
                     thread::spawn(move || {
-                        let set_timeout_result = stream.set_read_timeout(Some(server_context.ping_frequency));
-                        match set_timeout_result {
-                            Ok(_) => (),
-                            Err(e) => println!("ERROR SETTING READ TIMEOUT {}", e)
+                        if let Err(e) = stream.set_read_timeout(Some(server_context.ping_frequency)) {
+                            println!("ERROR SETTING READ TIMEOUT {:?}", e);
+                            return;
                         }
 
-                        let conn_outcome = handle_connection(stream, server_context);
-                        match conn_outcome {
-                            Ok(_) => (),
-                            Err(e) => {
-                                println!("ERROR {}", e)
-                            }
+                        if let Err(e) = handle_connection(&stream, server_context) {
+                            println!("ERROR FROM CONNECTION HANDLER {:?}", e)
                         }
+                        
+                        if let Err(e) = stream.shutdown(Shutdown::Both) {
+                            println!("ERROR SHUTTING DOWN SOCKET {:?}", e)
+                        }
+
                         println!("FINISHED HANDLING THIS CONNECTION")
                     }));
             },
-            Err(error) => println!("ERROR CONNECTING {}", error),
+            Err(e) => println!("ERROR CONNECTING {:?}", e),
         };
     }
 
     for handle in connection_handles {
-        handle.join().expect("TODO")
+        if let Err(e) = handle.join() {
+            println!("Error joining thread handle {:?}", e);
+        }
     }
 
     Ok(())
@@ -60,6 +63,10 @@ fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
             Ok(s)
         }
         Err(e) => match e.kind() {
+            // This particular ErrorKind is returned on Unix platforms
+            // if the TcpStream timed out per the read_timeout setting
+            // would need to test that on Windows if that became a goal to
+            // support both of those.
             ErrorKind::WouldBlock => {
                 return Ok(vec![])
             },
@@ -197,13 +204,13 @@ impl Read for FakeBufReader {
     }
 }
 
-fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()> {
+fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<()> {
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
     // there also needs to be a ping loop going on that can stop this loop too
 
     let mut write_handle = stream.try_clone()?;
-    let mut reader = io::BufReader::with_capacity(512, &stream);
+    let mut reader = io::BufReader::with_capacity(512, stream);
     let mut last_pong = Instant::now();
     let mut waiting_for_pong = false;
 
@@ -215,7 +222,6 @@ fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()
 
         if last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() {
             waiting_for_pong = true;
-            last_pong = Instant::now();
             println!("SENDING PING");
             let ping = format!("{}\r\n", Reply::Ping { host: &context.host }.to_string());
             write_handle.write_all(ping.as_bytes())?;
