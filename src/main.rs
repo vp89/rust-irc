@@ -54,14 +54,13 @@ fn main() -> io::Result<()> {
 }
 
 fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
-    // TODO fix this up to print the error
+    // TODO can this be cleaned up?
     let bytes = match reader.fill_buf() {
         Ok(s) => {
             Ok(s)
         }
         Err(e) => match e.kind() {
             ErrorKind::WouldBlock => {
-                println!("READ BUFFER TIMED OUT, CONTINUING");
                 return Ok(vec![])
             },
             _ => Err(e)
@@ -205,14 +204,13 @@ fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()
 
     let mut write_handle = stream.try_clone()?;
     let mut reader = io::BufReader::with_capacity(512, &stream);
-    // start stopwatch
     let mut last_pong = Instant::now();
     let mut waiting_for_pong = false;
 
     loop {
         if waiting_for_pong && last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() + 5 {
             println!("NO PONG RECEIVED CLOSING DOWN HANDLER");
-            return Ok(()); // is using return not idiomatic?? Look into that
+            return Ok(());
         }
 
         if last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() {
@@ -224,15 +222,7 @@ fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()
             write_handle.flush()?;
         }
 
-        let raw_messages = match get_messages(&mut reader) {
-            Ok(m) => Ok(m),
-            Err(e) => {
-                println!("ERROR GETTING MESSAGES {}", e);
-                let error = stream.take_error().expect("foo").unwrap();
-                println!("ERR AGAIN {}", error);
-                Err(e)
-            }
-        }?;
+        let raw_messages = get_messages(&mut reader)?;
 
         for raw_message in &raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
@@ -243,7 +233,7 @@ fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()
 
             let replies = match &message.command {
                 ClientToServerCommand::Quit => {
-                    return Ok(()); // is using return not idiomatic?? Look into that
+                    return Ok(());
                 }
                 ClientToServerCommand::Unhandled => {
                     println!("MESSAGE UNHANDLED {:?} {}", message, raw_message);
