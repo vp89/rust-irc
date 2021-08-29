@@ -12,6 +12,7 @@ pub enum ClientToServerCommand {
     Unhandled,
     Nick(NickCommand),
     Ping(PingCommand),
+    Pong,
     Quit
 }
 
@@ -78,6 +79,9 @@ impl FromStr for ClientToServerMessage {
                 ClientToServerCommand::Ping(PingCommand {
                     token
                 })
+            },
+            "PONG" => {
+                ClientToServerCommand::Pong
             },
             "QUIT" => ClientToServerCommand::Quit,
             _ => ClientToServerCommand::Unhandled

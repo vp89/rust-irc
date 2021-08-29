@@ -19,6 +19,7 @@ pub enum Reply<'a> {
     MotdStart { host: &'a str, nick: &'a str },
     EndOfMotd { host: &'a str, nick: &'a str },
     // TODO should these non-numerics be in a different file??
+    Ping { host: &'a str },
     Pong { host: &'a str, token: String }
 }
 
@@ -51,6 +52,7 @@ impl Display for Reply<'_> {
             Reply::Motd { host, nick, line } => write!(f, ":{} 372 {} :- {}", host, nick, line),
             Reply::MotdStart { host, nick } => write!(f, ":{} 375 {} :- {} Message of the Day -", host, nick, host),
             Reply::EndOfMotd { host, nick } => write!(f, ":{} 376 {} :End of /MOTD command.", host, nick),
+            Reply::Ping { host } => write!(f, ":{} PING", host),
             Reply::Pong { host, token } => write!(f, ":{} PONG {} :{}", host, host, token)
         }
     }

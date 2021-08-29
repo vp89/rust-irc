@@ -1,7 +1,7 @@
 pub mod message_parsing;
 pub mod replies;
 
-use std::{collections::VecDeque, io::{self, BufRead, Read, Write}, net::{TcpListener, TcpStream}, str::{FromStr}, thread};
+use std::{collections::VecDeque, io::{self, BufRead, ErrorKind, Read, Write}, net::{TcpListener, TcpStream}, str::{FromStr}, thread, time::{Duration, Instant}};
 use chrono::{DateTime, Utc};
 use crate::message_parsing::*;
 use crate::replies::*;
@@ -11,7 +11,8 @@ fn main() -> io::Result<()> {
     let context = ServerContext {
         start_time: Utc::now(),
         host: host.clone(),
-        version: "0.0.1".to_string()
+        version: "0.0.1".to_string(),
+        ping_frequency: Duration::from_secs(10)
     };
 
     println!("STARTING SERVER ON {}:6667", host);
@@ -25,10 +26,18 @@ fn main() -> io::Result<()> {
             Ok(stream) => {
                 connection_handles.push(
                     thread::spawn(move || {
+                        let set_timeout_result = stream.set_read_timeout(Some(server_context.ping_frequency));
+                        match set_timeout_result {
+                            Ok(_) => (),
+                            Err(e) => println!("ERROR SETTING READ TIMEOUT {}", e)
+                        }
+
                         let conn_outcome = handle_connection(stream, server_context);
                         match conn_outcome {
                             Ok(_) => (),
-                            Err(e) => println!("ERROR {}", e)
+                            Err(e) => {
+                                println!("ERROR {}", e)
+                            }
                         }
                         println!("FINISHED HANDLING THIS CONNECTION")
                     }));
@@ -45,7 +54,20 @@ fn main() -> io::Result<()> {
 }
 
 fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
-    let bytes = reader.fill_buf()?;
+    // TODO fix this up to print the error
+    let bytes = match reader.fill_buf() {
+        Ok(s) => {
+            Ok(s)
+        }
+        Err(e) => match e.kind() {
+            ErrorKind::WouldBlock => {
+                println!("READ BUFFER TIMED OUT, CONTINUING");
+                return Ok(vec![])
+            },
+            _ => Err(e)
+        }
+    }?;
+
     let bytes_read = bytes.len();
 
     match std::str::from_utf8(bytes) {
@@ -182,11 +204,35 @@ fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()
     // there also needs to be a ping loop going on that can stop this loop too
 
     let mut write_handle = stream.try_clone()?;
-    let mut reader = io::BufReader::with_capacity(512, stream);
+    let mut reader = io::BufReader::with_capacity(512, &stream);
+    // start stopwatch
+    let mut last_pong = Instant::now();
+    let mut waiting_for_pong = false;
 
     loop {
-        
-        let raw_messages = get_messages(&mut reader)?;
+        if waiting_for_pong && last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() + 5 {
+            println!("NO PONG RECEIVED CLOSING DOWN HANDLER");
+            return Ok(()); // is using return not idiomatic?? Look into that
+        }
+
+        if last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() {
+            waiting_for_pong = true;
+            last_pong = Instant::now();
+            println!("SENDING PING");
+            let ping = format!("{}\r\n", Reply::Ping { host: &context.host }.to_string());
+            write_handle.write_all(ping.as_bytes())?;
+            write_handle.flush()?;
+        }
+
+        let raw_messages = match get_messages(&mut reader) {
+            Ok(m) => Ok(m),
+            Err(e) => {
+                println!("ERROR GETTING MESSAGES {}", e);
+                let error = stream.take_error().expect("foo").unwrap();
+                println!("ERR AGAIN {}", error);
+                Err(e)
+            }
+        }?;
 
         for raw_message in &raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
@@ -205,6 +251,11 @@ fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()
                 },
                 ClientToServerCommand::Ping(c) => {
                     Some(vec![ Reply::Pong { host, token: c.token.clone() } ])
+                }
+                ClientToServerCommand::Pong => {
+                    last_pong = Instant::now();
+                    waiting_for_pong = false;
+                    None
                 }
                 ClientToServerCommand::Nick(c) => {                    
                     let nick = &c.nick;
@@ -258,5 +309,6 @@ fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()
 struct ServerContext {
     pub start_time: DateTime<Utc>,
     pub host: String,
-    pub version: String
+    pub version: String,
+    pub ping_frequency: Duration
 }
