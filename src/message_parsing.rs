@@ -59,9 +59,7 @@ impl FromStr for ClientToServerMessage {
                 let token = words.next().unwrap().to_owned(); // TODO handle error
                 ClientToServerCommand::Ping { token }
             },
-            "PONG" => {
-                ClientToServerCommand::Pong
-            },
+            "PONG" => ClientToServerCommand::Pong,
             "QUIT" => ClientToServerCommand::Quit,
             _ => ClientToServerCommand::Unhandled
         };
