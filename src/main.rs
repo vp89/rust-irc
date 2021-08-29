@@ -239,17 +239,15 @@ fn handle_connection(stream: TcpStream, context: ServerContext) -> io::Result<()
                     println!("MESSAGE UNHANDLED {:?} {}", message, raw_message);
                     None
                 },
-                ClientToServerCommand::Ping(c) => {
-                    Some(vec![ Reply::Pong { host, token: c.token.clone() } ])
+                ClientToServerCommand::Ping { token } => {
+                    Some(vec![ Reply::Pong { host, token: token.clone() } ])
                 }
                 ClientToServerCommand::Pong => {
                     last_pong = Instant::now();
                     waiting_for_pong = false;
                     None
                 }
-                ClientToServerCommand::Nick(c) => {                    
-                    let nick = &c.nick;
-
+                ClientToServerCommand::Nick { nick } => {                    
                     let mut welcome_storm = vec![
                         Reply::Welcome { host, nick },
                         Reply::YourHost { host, nick, version },

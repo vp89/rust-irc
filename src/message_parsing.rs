@@ -10,20 +10,10 @@ pub struct ClientToServerMessage {
 #[derive(Debug, PartialEq)]
 pub enum ClientToServerCommand {
     Unhandled,
-    Nick(NickCommand),
-    Ping(PingCommand),
+    Nick { nick: String },
+    Ping { token: String },
     Pong,
     Quit
-}
-
-#[derive(Debug, PartialEq)]
-pub struct NickCommand {
-    pub nick: String
-}
-
-#[derive(Debug, PartialEq)]
-pub struct PingCommand {
-    pub token: String
 }
 
 #[derive(Debug)]
@@ -34,14 +24,7 @@ pub struct ServerToClientMessage {
 #[derive(Debug)]
 pub enum Source {
     Server(String),
-    Client(ClientSource)
-}
-
-#[derive(Debug)]
-pub struct ClientSource {
-    pub nick: String,
-    pub user: String,
-    pub host: String
+    Client { nick: String, user: String, host: String }
 }
 
 #[derive(Debug)]
@@ -70,15 +53,11 @@ impl FromStr for ClientToServerMessage {
         let command = match raw_command {
             "NICK" => {
                 let nick = words.next().unwrap().to_owned(); // TODO handle error
-                ClientToServerCommand::Nick(NickCommand {
-                    nick
-                })
+                ClientToServerCommand::Nick { nick }
             },
             "PING" => {
                 let token = words.next().unwrap().to_owned(); // TODO handle error
-                ClientToServerCommand::Ping(PingCommand {
-                    token
-                })
+                ClientToServerCommand::Ping { token }
             },
             "PONG" => {
                 ClientToServerCommand::Pong
@@ -100,7 +79,7 @@ impl Display for ServerToClientMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let raw_source = match &self.source {
             Source::Server(s) => s.to_owned(), // TODO remove to_owned
-            Source::Client(s) => format!("{}!{}@{}", s.nick, s.user, s.host) 
+            Source::Client { nick, user, host} => format!("{}!{}@{}", nick, user, host) 
         };
 
         write!(f, ":{}", raw_source)
@@ -112,9 +91,7 @@ fn client_to_server_has_prefix_is_parsed() {
     let expected_nick = format!("Joe");
     let expected_message = ClientToServerMessage {
         source: Some(format!("FOO")),
-        command: ClientToServerCommand::Nick(NickCommand {
-            nick: expected_nick.clone()
-        })
+        command: ClientToServerCommand::Nick { nick: expected_nick.clone() }
     };
     let raw_str = &format!(
         ":{} NICK {}",
@@ -133,9 +110,7 @@ fn client_to_server_no_prefix_is_parsed() {
     let expected_nick = format!("Joe");
     let expected_message = ClientToServerMessage {
         source: None,
-        command: ClientToServerCommand::Nick(NickCommand {
-            nick: expected_nick.clone()
-        })
+        command: ClientToServerCommand::Nick { nick: expected_nick.clone() }
     };
     let raw_str = &format!("NICK {}", expected_nick);
     let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid prefix");
@@ -160,11 +135,11 @@ fn server_to_client_from_client_is_valid() {
     let user = "bar";
     let host = "baz";
     let message = ServerToClientMessage {
-        source: Source::Client(ClientSource {
+        source: Source::Client {
             nick: nick.to_owned(),
             user: user.to_owned(),
             host: host.to_owned()
-        })
+        }
     };
     let actual = message.to_string();
     let expected = format!(":{}!{}@{}", nick, user, host);
