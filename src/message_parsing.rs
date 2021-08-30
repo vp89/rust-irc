@@ -12,6 +12,7 @@ pub enum ClientToServerCommand {
     Unhandled,
     Nick { nick: String },
     Ping { token: String },
+    Join { channels: Vec<String> },
     Pong,
     Quit
 }
@@ -58,6 +59,11 @@ impl FromStr for ClientToServerMessage {
             "PING" => {
                 let token = words.next().unwrap().to_owned(); // TODO handle error
                 ClientToServerCommand::Ping { token }
+            },
+            "JOIN" => {
+                let raw_channels: String = words.next().unwrap().to_owned();
+                let channels = raw_channels.split(',').map(|s| s.to_string()).collect();
+                ClientToServerCommand::Join { channels }
             },
             "PONG" => ClientToServerCommand::Pong,
             "QUIT" => ClientToServerCommand::Quit,
@@ -114,6 +120,35 @@ fn client_to_server_no_prefix_is_parsed() {
     let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid prefix");
     let actual_command = message.command;
     assert_eq!(expected_message.command, actual_command);
+}
+
+
+#[test]
+fn from_client_valid_join_is_parsed() {
+    let expected_channel = "foobar".to_string();
+    let expected_message = ClientToServerMessage {
+        source: None,
+        command: ClientToServerCommand::Join { channels: vec![expected_channel.clone()] }
+    };
+    let raw_str = &format!("JOIN {}", expected_channel);
+    let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid message");
+    assert_eq!(expected_message.command, message.command);
+}
+
+#[test]
+fn from_client_join_multiplechannels_is_parsed() {
+    let expected_channel_1 = "foobar".to_string();
+    let expected_channel_2 = "barbaz".to_string();
+    
+    let expected_channels = vec![ expected_channel_1.clone(), expected_channel_2.clone() ];
+    let expected_message = ClientToServerMessage {
+        source: None,
+        command: ClientToServerCommand::Join { channels: expected_channels.clone() }
+    };
+
+    let raw_str = &format!("JOIN {}", expected_channels.join(","));
+    let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid message");
+    assert_eq!(expected_message.command, message.command);
 }
 
 #[test]

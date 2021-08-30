@@ -240,19 +240,22 @@ fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<(
             let replies = match &message.command {
                 ClientToServerCommand::Quit => {
                     return Ok(());
-                }
+                },
                 ClientToServerCommand::Unhandled => {
                     println!("MESSAGE UNHANDLED {:?} {}", message, raw_message);
                     None
                 },
                 ClientToServerCommand::Ping { token } => {
                     Some(vec![ Reply::Pong { host, token: token.clone() } ])
-                }
+                },
                 ClientToServerCommand::Pong => {
                     last_pong = Instant::now();
                     waiting_for_pong = false;
                     None
-                }
+                },
+                ClientToServerCommand::Join { channels} => {
+                    None
+                },
                 ClientToServerCommand::Nick { nick } => {                    
                     let mut welcome_storm = vec![
                         Reply::Welcome { host, nick },
