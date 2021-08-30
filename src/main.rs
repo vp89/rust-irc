@@ -254,6 +254,7 @@ fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<(
                     None
                 },
                 ClientToServerCommand::Join { channels} => {
+                    // add channel join handling
                     None
                 },
                 ClientToServerCommand::Nick { nick } => {                    
