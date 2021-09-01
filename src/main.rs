@@ -255,7 +255,17 @@ fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<(
                 },
                 ClientToServerCommand::Join { channels} => {
                     // add channel join handling
-                    None
+                    let mut replies: Vec::<Reply> = Vec::new();
+                    for channel in channels {
+                        let mut channel_replies = vec![
+                            Reply::Join { client: "localhost", channel },
+                            Reply::Topic { host, nick: "FOOBAR", channel, topic: "foobar topic" }
+                        ];
+
+                        replies.append(&mut channel_replies);
+                    }
+                    
+                    Some(replies)
                 },
                 ClientToServerCommand::Nick { nick } => {                    
                     let mut welcome_storm = vec![

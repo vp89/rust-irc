@@ -15,12 +15,14 @@ pub enum Reply<'a> {
     LuserMe { host: &'a str, nick: &'a str, clients: u32, servers: u32 },
     LocalUsers { host: &'a str, nick: &'a str, current: u32, max: u32 },
     GlobalUsers { host: &'a str, nick: &'a str, current: u32, max: u32 },
+    Topic { host: &'a str, nick: &'a str, channel: &'a str, topic: &'a str },
     Motd { host: &'a str, nick: &'a str, line: &'a str },
     MotdStart { host: &'a str, nick: &'a str },
     EndOfMotd { host: &'a str, nick: &'a str },
     // TODO should these non-numerics be in a different file??
     Ping { host: &'a str },
-    Pong { host: &'a str, token: String }
+    Pong { host: &'a str, token: String },
+    Join { client: &'a str, channel: &'a str }
 }
 
 impl Display for Reply<'_> {
@@ -49,11 +51,13 @@ impl Display for Reply<'_> {
             Reply::GlobalUsers { host, nick, current, max } => {
                 write!(f, ":{} 266 {} {} {} :Current global users {}, max {}", host, nick, current, max, current, max)
             },
+            Reply::Topic { host, nick, channel, topic } => write!(f, ":{} 322 {} {} :{}", host, nick, channel, topic),
             Reply::Motd { host, nick, line } => write!(f, ":{} 372 {} :- {}", host, nick, line),
             Reply::MotdStart { host, nick } => write!(f, ":{} 375 {} :- {} Message of the Day -", host, nick, host),
             Reply::EndOfMotd { host, nick } => write!(f, ":{} 376 {} :End of /MOTD command.", host, nick),
             Reply::Ping { host } => write!(f, ":{} PING", host),
-            Reply::Pong { host, token } => write!(f, ":{} PONG {} :{}", host, host, token)
+            Reply::Pong { host, token } => write!(f, ":{} PONG {} :{}", host, host, token),
+            Reply::Join { client, channel } => write!(f, ":{} JOIN {}", client, channel)
         }
     }
 }
