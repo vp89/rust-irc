@@ -13,6 +13,8 @@ pub enum ClientToServerCommand {
     Nick { nick: String },
     Ping { token: String },
     Join { channels: Vec<String> },
+    Mode { channel: String },
+    Who { channel: String },
     Pong,
     Quit
 }
@@ -65,6 +67,14 @@ impl FromStr for ClientToServerMessage {
                 let channels = raw_channels.split(',').map(|s| s.to_string()).collect();
                 ClientToServerCommand::Join { channels }
             },
+            "MODE" => {
+                let channel = words.next().unwrap().to_owned(); // TODO handle error
+                ClientToServerCommand::Mode { channel }
+            },
+            "WHO" => {
+                let channel = words.next().unwrap().to_owned(); // TODO handle error
+                ClientToServerCommand::Who { channel }
+            }
             "PONG" => ClientToServerCommand::Pong,
             "QUIT" => ClientToServerCommand::Quit,
             _ => ClientToServerCommand::Unhandled

@@ -15,17 +15,24 @@ pub enum Reply<'a> {
     LuserMe { host: &'a str, nick: &'a str, clients: u32, servers: u32 },
     LocalUsers { host: &'a str, nick: &'a str, current: u32, max: u32 },
     GlobalUsers { host: &'a str, nick: &'a str, current: u32, max: u32 },
-    EndOfWho { host: &'a str },
-    Topic { host: &'a str, nick: &'a str, channel: &'a str, topic: &'a str },
+    EndOfWho { host: &'a str, nick: &'a str, channel: &'a str },
     ListEnd { host: &'a str },
-    EndOfNames { host: &'a str },
+    // TODO mode should not be plain strings
+    ChannelModeIs { host: &'a str, nick: &'a str, channel: &'a str, mode_string: &'a str, mode_arguments: &'a str },
+    CreationTime { host: &'a str, nick: &'a str, channel: &'a str, created_at: &'a DateTime<Utc> },
+    Topic { host: &'a str, nick: &'a str, channel: &'a str, topic: &'a str },
+    TopicWhoTime { host: &'a str, channel: &'a str, nick: &'a str, set_at: &'a DateTime<Utc> },
+    WhoReply { host: &'a str, nick: &'a str, channel: &'a str, client: &'a str, other_nick: &'a str },
+    NamReply { host: &'a str, channel: &'a str, nick: &'a str },
+    EndOfNames { host: &'a str, nick: &'a str, channel: &'a str },
     Motd { host: &'a str, nick: &'a str, line: &'a str },
     MotdStart { host: &'a str, nick: &'a str },
     EndOfMotd { host: &'a str, nick: &'a str },
     // TODO should these non-numerics be in a different file??
     Ping { host: &'a str },
     Pong { host: &'a str, token: String },
-    Join { client: &'a str, channel: &'a str }
+    Join { client: &'a str, channel: &'a str },
+    Mode { host: &'a str, channel: &'a str, mode_string: &'a str }
 }
 
 impl Display for Reply<'_> {
@@ -54,16 +61,32 @@ impl Display for Reply<'_> {
             Reply::GlobalUsers { host, nick, current, max } => {
                 write!(f, ":{} 266 {} {} {} :Current global users {}, max {}", host, nick, current, max, current, max)
             },
-            Reply::EndOfWho { host } => write!(f, ":{} 315 :End of /WHO list", host),
-            Reply::Topic { host, nick, channel, topic } => write!(f, ":{} 322 {} {} :{}", host, nick, channel, topic),
-            Reply::ListEnd { host} => write!(f, ":{} 323 :End of /LIST", host),
-            Reply::EndOfNames { host } => write!(f, ":{} 366 :End of /NAMES list", host),
+            Reply::EndOfWho { host, nick, channel } => write!(f, ":{} 315 {} {} :End of /WHO list", host, nick, channel),
+            Reply::ListEnd { host } => write!(f, ":{} 323 :End of /LIST", host),
+            // this may be duplicate of Mode?
+            Reply::ChannelModeIs { host, nick, channel, mode_string, mode_arguments } => {
+                write!(f, ":{} 324 {} {} {} {}", host, nick, channel, mode_string, mode_arguments)
+            },
+            Reply::CreationTime { host, nick, channel, created_at } => write!(f, ":{} 329 {} {} {}", host, nick, channel, created_at),
+            Reply::Topic { host, nick, channel, topic } => write!(f, ":{} 332 {} {} :{}", host, nick, channel, topic),
+            // TODO print set_at as UNIX time??
+            Reply::TopicWhoTime { host, channel, nick, set_at } => write!(f, ":{} 333 {} {} {}", host, nick, channel, set_at),
+            // TODO remove hard-coding
+            Reply::WhoReply { host, nick, channel, other_nick, client } => {
+                write!(f, ":{} 352 {} {} {} {} {} {} H@ :0 realname", host, nick, channel, other_nick, client, host, nick)
+            },
+            //RES -> :<source> 353 nick = #channel :listofusers with @
+            Reply::NamReply { host, channel, nick} => write!(f, ":{} 353 {} = {} :@vince", host, nick, channel),
+            Reply::EndOfNames { host, nick, channel } => write!(f, ":{} 366 {} {} :End of /NAMES list", host, nick, channel),
             Reply::Motd { host, nick, line } => write!(f, ":{} 372 {} :- {}", host, nick, line),
             Reply::MotdStart { host, nick } => write!(f, ":{} 375 {} :- {} Message of the Day -", host, nick, host),
             Reply::EndOfMotd { host, nick } => write!(f, ":{} 376 {} :End of /MOTD command.", host, nick),
             Reply::Ping { host } => write!(f, ":{} PING", host),
             Reply::Pong { host, token } => write!(f, ":{} PONG {} :{}", host, host, token),
-            Reply::Join { client, channel } => write!(f, ":{} JOIN {}", client, channel)
+            // this is sent to all users on the channel maybe should not be in this file?
+            Reply::Join { client, channel } => write!(f, ":{} JOIN :{}", client, channel),
+            // this one is not numeric not sure where to put it..
+            Reply::Mode { host, channel, mode_string } => write!(f, ":{} MODE {} {}", host, channel, mode_string)
         }
     }
 }
@@ -216,16 +239,24 @@ fn listend_prints_correctly() {
 
 #[test]
 fn endofnames_prints_correctly() {
-    let reply = Reply::EndOfNames { host: "localhost" };
+    let reply = Reply::EndOfNames { host: "localhost", nick: "JIM", channel: "#foobar" };
     let actual = reply.to_string();
-    let expected = format!(":localhost 366 :End of /NAMES list");
+    let expected = format!(":localhost 366 JIM #foobar :End of /NAMES list");
     assert_eq!(expected, actual);
 }
 
 #[test]
 fn endofwho_prints_correctly() {
-    let reply = Reply::EndOfWho { host: "localhost" };
+    let reply = Reply::EndOfWho { host: "localhost", nick: "JIM", channel: "#foobar" };
     let actual = reply.to_string();
-    let expected = format!(":localhost 315 :End of /WHO list");
+    let expected = format!(":localhost 315 JIM #foobar :End of /WHO list");
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn topic_prints_correctly() {
+    let reply = Reply::Topic { host: "localhost", nick: "JIM", channel: "#foobar", topic: "hELLO WORLD" };
+    let actual = reply.to_string();
+    let expected = format!(":localhost 332 JIM #foobar :hELLO WORLD");
     assert_eq!(expected, actual);
 }

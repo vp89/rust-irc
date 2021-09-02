@@ -229,6 +229,7 @@ fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<(
         }
 
         let raw_messages = get_messages(&mut reader)?;
+        let now = Utc::now();
 
         for raw_message in &raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
@@ -256,16 +257,34 @@ fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<(
                 ClientToServerCommand::Join { channels} => {
                     // add channel join handling
                     let mut replies: Vec::<Reply> = Vec::new();
+
                     for channel in channels {
                         let mut channel_replies = vec![
-                            Reply::Join { client: "localhost", channel },
-                            Reply::Topic { host, nick: "FOOBAR", channel, topic: "foobar topic" }
+                            Reply::Join { client: "vince!~vince@localhost", channel },
+                            // TODO have Nick available here
+                            // TODO persist the channel metadata
+                            Reply::Topic { host, nick: "vince", channel, topic: "foobar topic" },
+                            Reply::TopicWhoTime { host, channel, nick: "vince", set_at: &now },
+                            Reply::NamReply { host, channel, nick: "vince" },
                         ];
 
                         replies.append(&mut channel_replies);
                     }
                     
                     Some(replies)
+                },
+                ClientToServerCommand::Mode { channel } => {
+                    Some(vec![ 
+                        Reply::Mode { host, channel, mode_string: "+tn" },
+                        Reply::ChannelModeIs { host, nick: "vince", channel, mode_string: "+mtn1", mode_arguments: "100" },
+                        Reply::CreationTime { host, nick: "vince", channel, created_at: &now } 
+                    ])
+                },
+                ClientToServerCommand::Who { channel } => {
+                    Some(vec![
+                        Reply::WhoReply { host, channel, nick: "vince", other_nick: "~vince", client: "localhost" },
+                        Reply::EndOfWho { host, nick: "vince", channel },
+                    ])
                 },
                 ClientToServerCommand::Nick { nick } => {                    
                     let mut welcome_storm = vec![
