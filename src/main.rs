@@ -213,6 +213,8 @@ fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<(
     let mut reader = io::BufReader::with_capacity(512, stream);
     let mut last_pong = Instant::now();
     let mut waiting_for_pong = false;
+    let mut connection_nick = "".to_string();
+    let mut connection_client = "".to_string();
 
     loop {
         if waiting_for_pong && last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() + 5 {
@@ -260,12 +262,12 @@ fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<(
 
                     for channel in channels {
                         let mut channel_replies = vec![
-                            Reply::Join { client: "vince!~vince@localhost", channel },
+                            Reply::Join { client: &connection_client, channel },
                             // TODO have Nick available here
                             // TODO persist the channel metadata
-                            Reply::Topic { host, nick: "vince", channel, topic: "foobar topic" },
-                            Reply::TopicWhoTime { host, channel, nick: "vince", set_at: &now },
-                            Reply::NamReply { host, channel, nick: "vince" },
+                            Reply::Topic { host, nick: &connection_nick, channel, topic: "foobar topic" },
+                            Reply::TopicWhoTime { host, channel, nick: &connection_nick, set_at: &now },
+                            Reply::NamReply { host, channel, nick: &connection_nick },
                         ];
 
                         replies.append(&mut channel_replies);
@@ -276,17 +278,20 @@ fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<(
                 ClientToServerCommand::Mode { channel } => {
                     Some(vec![ 
                         Reply::Mode { host, channel, mode_string: "+tn" },
-                        Reply::ChannelModeIs { host, nick: "vince", channel, mode_string: "+mtn1", mode_arguments: "100" },
-                        Reply::CreationTime { host, nick: "vince", channel, created_at: &now } 
+                        Reply::ChannelModeIs { host, nick: &connection_nick, channel, mode_string: "+mtn1", mode_arguments: "100" },
+                        Reply::CreationTime { host, nick: &connection_nick, channel, created_at: &now } 
                     ])
                 },
                 ClientToServerCommand::Who { channel } => {
                     Some(vec![
-                        Reply::WhoReply { host, channel, nick: "vince", other_nick: "~vince", client: "localhost" },
-                        Reply::EndOfWho { host, nick: "vince", channel },
+                        Reply::WhoReply { host, channel, nick: &connection_nick, other_nick: "~vince", client: "localhost" },
+                        Reply::EndOfWho { host, nick: &connection_nick, channel },
                     ])
                 },
-                ClientToServerCommand::Nick { nick } => {                    
+                ClientToServerCommand::Nick { nick } => {   
+                    connection_nick = nick.to_string();
+                    connection_client = format!("{}!~{}@localhost", connection_nick, connection_nick);
+                 
                     let mut welcome_storm = vec![
                         Reply::Welcome { host, nick },
                         Reply::YourHost { host, nick, version },

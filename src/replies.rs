@@ -76,7 +76,7 @@ impl Display for Reply<'_> {
                 write!(f, ":{} 352 {} {} {} {} {} {} H@ :0 realname", host, nick, channel, other_nick, client, host, nick)
             },
             //RES -> :<source> 353 nick = #channel :listofusers with @
-            Reply::NamReply { host, channel, nick} => write!(f, ":{} 353 {} = {} :@vince", host, nick, channel),
+            Reply::NamReply { host, channel, nick} => write!(f, ":{} 353 {} = {} :@{}", host, nick, channel, nick),
             Reply::EndOfNames { host, nick, channel } => write!(f, ":{} 366 {} {} :End of /NAMES list", host, nick, channel),
             Reply::Motd { host, nick, line } => write!(f, ":{} 372 {} :- {}", host, nick, line),
             Reply::MotdStart { host, nick } => write!(f, ":{} 375 {} :- {} Message of the Day -", host, nick, host),
