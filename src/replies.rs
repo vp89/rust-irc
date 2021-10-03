@@ -91,7 +91,6 @@ impl Display for Reply<'_> {
     }
 }
 
-
 #[test]
 fn welcome_prints_correctly() {
     let reply = Reply::Welcome { host: "localhost", nick: "JIM" };

@@ -3,8 +3,9 @@ pub mod replies;
 
 use std::{collections::VecDeque, io::{self, BufRead, ErrorKind, Read, Write}, net::{Shutdown, TcpListener, TcpStream}, str::{FromStr}, thread, time::{Duration, Instant}};
 use chrono::{DateTime, Utc};
-use crate::message_parsing::*;
-use crate::replies::*;
+use message_parsing::*;
+use replies::*;
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 fn main() -> io::Result<()> {
     let host = "localhost".to_string();
@@ -49,7 +50,7 @@ fn main() -> io::Result<()> {
 
     for handle in connection_handles {
         if let Err(e) = handle.join() {
-            println!("Error joining thread handle {:?}", e);
+            println!("Error joining connection thread handle {:?}", e);
         }
     }
 
@@ -235,7 +236,6 @@ fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<(
 
         for raw_message in &raw_messages {
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
-
             let host = &context.host;
             let version = &context.version;
             let created_at = &context.start_time;
