@@ -21,8 +21,15 @@ fn main() -> io::Result<()> {
     let listener = TcpListener::bind(format!("{}:6667", host))?;
     let mut connection_handles = vec![];
 
+    let (client_to_server_sender, client_to_server_receiver) = channel();
+
+    let server_manager_handle = thread::spawn(move || {
+        run_server_manager(client_to_server_receiver);
+    });
+
     for connection_attempt in listener.incoming() {
         let server_context = context.clone();
+        let sender = client_to_server_sender.clone();
 
         match connection_attempt {
             Ok(stream) => {
@@ -33,7 +40,7 @@ fn main() -> io::Result<()> {
                             return;
                         }
 
-                        if let Err(e) = handle_connection(&stream, server_context) {
+                        if let Err(e) = handle_connection(&stream, sender, server_context) {
                             println!("ERROR FROM CONNECTION HANDLER {:?}", e)
                         }
                         
@@ -54,7 +61,19 @@ fn main() -> io::Result<()> {
         }
     }
 
+    if let Err(e) = server_manager_handle.join() {
+        println!("Error joining server manager thread handle {:?}", e);
+    }
+
     Ok(())
+}
+
+fn run_server_manager(receiver: Receiver<String>) {
+    println!("Started server manager");
+
+    for received in receiver.recv() {
+
+    }
 }
 
 fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
@@ -205,7 +224,7 @@ impl Read for FakeBufReader {
     }
 }
 
-fn handle_connection(stream: &TcpStream, context: ServerContext) -> io::Result<()> {
+fn handle_connection(stream: &TcpStream, sender: Sender<String>, context: ServerContext) -> io::Result<()> {
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
     // there also needs to be a ping loop going on that can stop this loop too
