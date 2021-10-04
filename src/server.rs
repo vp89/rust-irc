@@ -5,97 +5,84 @@ use uuid::Uuid;
 use crate::{ConnectionContext, ServerContext, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
 
 pub fn run_server(
-    context: ServerContext,
+    context: &ServerContext,
     receiver_channel: Receiver<ClientToServerMessage>,
     connections: Arc<RwLock<HashMap<Uuid, ConnectionContext>>>) {
-
-    /*
-    connections
-        .read()
-        .unwrap()
-        .get(&Uuid::new_v4())
-        .unwrap()
-        .client_sender_channel
-        .lock()
-        .unwrap()
-        .send("BLARGH!".to_string());
-    */
     
-    let host = &context.host;
+    let host = context.host.clone();
     // TODO pluck these out of the connection context
     let mut connection_nick = "".to_string();
     let mut connection_client = "".to_string();
 
-    for received in receiver_channel.recv() {
-        let version = &context.version;
-        let created_at = &context.start_time;
+    loop {
+        for received in receiver_channel.recv() {
+            // TODO is this right?? This seems so janky
+            let sender = connections
+                .read()
+                .unwrap()
+                .get(&received.connection_uuid)
+                .unwrap()
+                .client_sender_channel
+                .lock()
+                .unwrap()
+                .clone();
 
-        match &received.command {
-            ClientToServerCommand::Join { channels} => {
-                let now = Utc::now();
+            let version = &context.version;
+            let created_at = &context.start_time;
 
-                for channel in channels {
-                    // TODO grab connection sender and send here
-                    /*
-                    Reply::Join { client: &connection_client, channel },
-                    // TODO have Nick available here
-                    // TODO persist the channel metadata
-                    Reply::Topic { host, nick: &connection_nick, channel, topic: "foobar topic" },
-                    Reply::TopicWhoTime { host, channel, nick: &connection_nick, set_at: &now },
-                    Reply::NamReply { host, channel, nick: &connection_nick },
-                    */
-                }
-            },
-            ClientToServerCommand::Mode { channel } => {
-                let now = Utc::now();
+            match &received.command {
+                ClientToServerCommand::Join { channels} => {
+                    let now = Utc::now();
 
-                // TODO grab connection sender and send here
-                /*
-                Reply::Mode { host, channel, mode_string: "+tn" }
-                Reply::ChannelModeIs { host, nick: &connection_nick, channel, mode_string: "+mtn1", mode_arguments: "100" }
-                Reply::CreationTime { host, nick: &connection_nick, channel, created_at: &now }
-                */
-            },
-            ClientToServerCommand::Who { channel } => {
-                // TODO grab connection sender and send here
-                /*
-                Reply::WhoReply { host, channel, nick: &connection_nick, other_nick: "~vince", client: "localhost" },
-                Reply::EndOfWho { host, nick: &connection_nick, channel },
-                */
-            },
-            ClientToServerCommand::Nick { nick } => {   
-                connection_nick = nick.to_string();
-                connection_client = format!("{}!~{}@localhost", connection_nick, connection_nick);
+                    for channel in channels {
+                        sender.send(Reply::Join { client: connection_client.clone(), channel: channel.clone() });
+                        // TODO have Nick available here
+                        // TODO persist the channel metadata
+                        sender.send(Reply::Topic { host: host.clone(), nick: connection_nick.clone(), channel: channel.clone(), topic: "foobar topic".to_string() });
+                        sender.send(Reply::TopicWhoTime { host: host.clone(), channel: channel.clone(), nick: connection_nick.clone(), set_at: now.clone() });
+                        sender.send(Reply::NamReply { host: host.clone(), channel: channel.clone(), nick: connection_nick.clone() });
+                    }
+                },
+                ClientToServerCommand::Mode { channel } => {
+                    let now = Utc::now();
 
-                // TODO grab connection sender and send here
-                /*
-                    Reply::Welcome { host, nick },
-                    Reply::YourHost { host, nick, version },
-                    Reply::Created { host, nick, created_at },
-                    Reply::MyInfo { host, nick, version, user_modes: "r", channel_modes: "i" },
-                    Reply::Support { host, nick, channel_len: 32 },
-                    Reply::LuserClient { host, nick, visible_users: 100, invisible_users: 20, servers: 1 },
-                    Reply::LuserOp { host, nick, operators: 1337 },
-                    Reply::LuserUnknown { host, nick, unknown: 7 },
-                    Reply::LuserChannels { host, nick, channels: 9999 },
-                    Reply::LuserMe { host, nick, clients: 900, servers: 1 },
-                    Reply::LocalUsers { host, nick, current: 845, max: 1000 },
-                    Reply::GlobalUsers { host, nick, current: 9832, max: 23455 },
-                    Reply::StatsDLine { host, nick, connections: 9998, clients: 9000, received: 99999 }
-                */
+                    sender.send(Reply::Mode { host: host.clone(), channel: channel.clone(), mode_string: "+tn".to_string() });
+                    sender.send(Reply::ChannelModeIs { host: host.clone(), nick: connection_nick.clone(), channel: channel.clone(), mode_string: "+mtn1".to_string(), mode_arguments: "100".to_string() });
+                    sender.send(Reply::CreationTime { host: host.clone(), nick: connection_nick.clone(), channel: channel.clone(), created_at: now.clone() });
+                },
+                ClientToServerCommand::Who { channel } => {
+                    sender.send(Reply::WhoReply { host: host.clone(), channel: channel.clone(), nick: connection_nick.clone(), other_nick: "~vince".to_string(), client: "localhost".to_string() });
+                    sender.send(Reply::EndOfWho { host: host.clone(), nick: connection_nick.clone(), channel: channel.clone() });
+                },
+                ClientToServerCommand::Nick { nick } => {   
+                    connection_nick = nick.to_string();
+                    connection_client = format!("{}!~{}@localhost", connection_nick, connection_nick);
 
-                /*
-                Reply::MotdStart { host, nick }
-                // TODO proper configurable MOTD
-                Reply::Motd { host, nick, line: "Foobar" };
-                Reply::EndOfMotd { host, nick }
-                */
-            },
-            // these won't be passed down
-            ClientToServerCommand::Unhandled { .. } => { },
-            ClientToServerCommand::Ping { .. } => { },
-            ClientToServerCommand::Pong {} => { },
-            ClientToServerCommand::Quit {} => { }
-        };
+                    sender.send(Reply::Welcome { host: host.clone(), nick: connection_nick.clone() });
+                    sender.send(Reply::YourHost { host: host.clone(), nick: connection_nick.clone(), version: version.clone() });
+                    sender.send(Reply::Created { host: host.clone(), nick: connection_nick.clone(), created_at: created_at.clone() });
+                    sender.send(Reply::MyInfo { host: host.clone(), nick: connection_nick.clone(), version: version.clone(), user_modes: "r".to_string(), channel_modes: "i".to_string() });
+                    sender.send(Reply::Support { host: host.clone(), nick: connection_nick.clone(), channel_len: 32 });
+                    sender.send(Reply::LuserClient { host: host.clone(), nick: connection_nick.clone(), visible_users: 100, invisible_users: 20, servers: 1 });
+                    sender.send(Reply::LuserOp { host: host.clone(), nick: connection_nick.clone(), operators: 1337 });
+                    sender.send(Reply::LuserUnknown { host: host.clone(), nick: connection_nick.clone(), unknown: 7 });
+                    sender.send(Reply::LuserChannels { host: host.clone(), nick: connection_nick.clone(), channels: 9999 });
+                    sender.send(Reply::LuserMe { host: host.clone(), nick: connection_nick.clone(), clients: 900, servers: 1 });
+                    sender.send(Reply::LocalUsers { host: host.clone(), nick: connection_nick.clone(), current: 845, max: 1000 });
+                    sender.send(Reply::GlobalUsers { host: host.clone(), nick: connection_nick.clone(), current: 9832, max: 23455 });
+                    sender.send(Reply::StatsDLine { host: host.clone(), nick: connection_nick.clone(), connections: 9998, clients: 9000, received: 99999 });
+
+                    sender.send(Reply::MotdStart { host: host.clone(), nick: connection_nick.clone() });
+                    // TODO proper configurable MOTD
+                    sender.send(Reply::Motd { host: host.clone(), nick: connection_nick.clone(), line: "Foobar".to_string() });
+                    sender.send(Reply::EndOfMotd { host: host.clone(), nick: connection_nick.clone() });
+                },
+                // these won't be passed down
+                ClientToServerCommand::Unhandled { .. } => { },
+                ClientToServerCommand::Ping { .. } => { },
+                ClientToServerCommand::Pong {} => { },
+                ClientToServerCommand::Quit {} => { }
+            };
+        }
     }
 }

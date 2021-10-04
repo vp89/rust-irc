@@ -15,6 +15,7 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
     let mut waiting_for_pong = false;
     let mut connection_nick = "".to_string();
     let mut connection_client = "".to_string();
+    let host = &context.host;
 
     loop {
         if waiting_for_pong && last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() + 5 {
@@ -25,23 +26,22 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
         if last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() {
             waiting_for_pong = true;
             println!("SENDING PING");
-            let ping = format!("{}\r\n", Reply::Ping { host: &context.host }.to_string());
+            let ping = format!("{}\r\n", Reply::Ping { host: host.clone() }.to_string());
             write_handle.write_all(ping.as_bytes())?;
             write_handle.flush()?;
         }
 
         let raw_messages = get_messages(&mut reader)?;
-        let host = &context.host;
 
         for raw_message in &raw_messages {    
-            let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
+            let message = ClientToServerMessage::from_str(raw_message, connection_uuid.clone()).expect("FOO"); // TODO
             
             match &message.command {
                 ClientToServerCommand::Unhandled => {
                     println!("MESSAGE UNHANDLED {:?} {}", message, raw_message);
                 },
                 ClientToServerCommand::Ping { token } => {
-                    let pong = format!("{}\r\n", Reply::Pong { host, token: token.clone() }.to_string());
+                    let pong = format!("{}\r\n", Reply::Pong { host: host.clone(), token: token.clone() }.to_string());
                     write_handle.write_all(pong.as_bytes())?;
                     write_handle.flush()?;
                 },

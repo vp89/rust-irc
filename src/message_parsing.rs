@@ -1,10 +1,13 @@
 use std::fmt::Display;
 use std::{str::FromStr};
 
+use uuid::Uuid;
+
 #[derive(Debug, Clone)]
 pub struct ClientToServerMessage {
     pub source: Option<String>,
-    pub command: ClientToServerCommand
+    pub command: ClientToServerCommand,
+    pub connection_uuid: Uuid
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -36,10 +39,8 @@ pub struct ServerToServerMessage {
 }
 
 // TODO this doesnt handle NICK params
-impl FromStr for ClientToServerMessage {
-    type Err = (); // TODO?
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+impl ClientToServerMessage {
+    pub fn from_str(s: &str, conn_uuid: Uuid) -> Result<Self, ()> {
         let has_source = s.starts_with(':');
         let mut words = s.split_whitespace();
 
@@ -82,7 +83,8 @@ impl FromStr for ClientToServerMessage {
 
         let message = ClientToServerMessage {
             source,
-            command
+            command,
+            connection_uuid: conn_uuid
         };
 
         Ok(message)
@@ -103,16 +105,18 @@ impl Display for ServerToClientMessage {
 #[test]
 fn client_to_server_has_prefix_is_parsed() {
     let expected_nick = format!("Joe");
+    let uuid = Uuid::new_v4(); 
     let expected_message = ClientToServerMessage {
         source: Some(format!("FOO")),
-        command: ClientToServerCommand::Nick { nick: expected_nick.clone() }
+        command: ClientToServerCommand::Nick { nick: expected_nick.clone() },
+        connection_uuid: uuid
     };
     let raw_str = &format!(
         ":{} NICK {}",
         expected_message.source.as_ref().unwrap(),
         expected_nick);
 
-    let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid prefix");
+    let message = ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid prefix");
     let actual_source = message.source;
     let actual_command = message.command;
     assert_eq!(expected_message.source, actual_source);
@@ -122,12 +126,14 @@ fn client_to_server_has_prefix_is_parsed() {
 #[test]
 fn client_to_server_no_prefix_is_parsed() {
     let expected_nick = format!("Joe");
+    let uuid = Uuid::new_v4(); 
     let expected_message = ClientToServerMessage {
         source: None,
-        command: ClientToServerCommand::Nick { nick: expected_nick.clone() }
+        command: ClientToServerCommand::Nick { nick: expected_nick.clone() },
+        connection_uuid: uuid
     };
     let raw_str = &format!("NICK {}", expected_nick);
-    let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid prefix");
+    let message = ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid prefix");
     let actual_command = message.command;
     assert_eq!(expected_message.command, actual_command);
 }
@@ -136,12 +142,14 @@ fn client_to_server_no_prefix_is_parsed() {
 #[test]
 fn from_client_valid_join_is_parsed() {
     let expected_channel = "foobar".to_string();
+    let uuid = Uuid::new_v4(); 
     let expected_message = ClientToServerMessage {
         source: None,
-        command: ClientToServerCommand::Join { channels: vec![expected_channel.clone()] }
+        command: ClientToServerCommand::Join { channels: vec![expected_channel.clone()] },
+        connection_uuid: uuid
     };
     let raw_str = &format!("JOIN {}", expected_channel);
-    let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid message");
+    let message = ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
     assert_eq!(expected_message.command, message.command);
 }
 
@@ -149,15 +157,17 @@ fn from_client_valid_join_is_parsed() {
 fn from_client_join_multiplechannels_is_parsed() {
     let expected_channel_1 = "foobar".to_string();
     let expected_channel_2 = "barbaz".to_string();
+    let uuid = Uuid::new_v4(); 
     
     let expected_channels = vec![ expected_channel_1.clone(), expected_channel_2.clone() ];
     let expected_message = ClientToServerMessage {
         source: None,
-        command: ClientToServerCommand::Join { channels: expected_channels.clone() }
+        command: ClientToServerCommand::Join { channels: expected_channels.clone() },
+        connection_uuid: uuid
     };
 
     let raw_str = &format!("JOIN {}", expected_channels.join(","));
-    let message = ClientToServerMessage::from_str(raw_str).expect("Failed to parse valid message");
+    let message = ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
     assert_eq!(expected_message.command, message.command);
 }
 

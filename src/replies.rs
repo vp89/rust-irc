@@ -1,41 +1,41 @@
 use std::fmt::Display;
 use chrono::{DateTime, Utc};
 
-pub enum Reply<'a> {
-    Welcome { host: &'a str, nick: &'a str },
-    YourHost { host: &'a str, nick: &'a str, version: &'a str },
-    Created { host: &'a str, nick: &'a str, created_at: &'a DateTime<Utc> },
-    MyInfo { host: &'a str, nick: &'a str, version: &'a str, user_modes: &'a str, channel_modes: &'a str },
-    Support { host: &'a str, nick: &'a str, channel_len: u32 },
-    StatsDLine { host: &'a str, nick: &'a str, connections: u32, clients: u32, received: u32 },
-    LuserClient { host: &'a str, nick: &'a str, visible_users: u32, invisible_users: u32, servers: u32 },
-    LuserOp { host: &'a str, nick: &'a str, operators: u32 },
-    LuserUnknown { host: &'a str, nick: &'a str, unknown: u32 },
-    LuserChannels { host: &'a str, nick: &'a str, channels: u32 },
-    LuserMe { host: &'a str, nick: &'a str, clients: u32, servers: u32 },
-    LocalUsers { host: &'a str, nick: &'a str, current: u32, max: u32 },
-    GlobalUsers { host: &'a str, nick: &'a str, current: u32, max: u32 },
-    EndOfWho { host: &'a str, nick: &'a str, channel: &'a str },
-    ListEnd { host: &'a str },
+pub enum Reply {
+    Welcome { host: String, nick: String },
+    YourHost { host: String, nick: String, version: String },
+    Created { host: String, nick: String, created_at: DateTime<Utc> },
+    MyInfo { host: String, nick: String, version: String, user_modes: String, channel_modes: String },
+    Support { host: String, nick: String, channel_len: u32 },
+    StatsDLine { host: String, nick: String, connections: u32, clients: u32, received: u32 },
+    LuserClient { host: String, nick: String, visible_users: u32, invisible_users: u32, servers: u32 },
+    LuserOp { host: String, nick: String, operators: u32 },
+    LuserUnknown { host: String, nick: String, unknown: u32 },
+    LuserChannels { host: String, nick: String, channels: u32 },
+    LuserMe { host: String, nick: String, clients: u32, servers: u32 },
+    LocalUsers { host: String, nick: String, current: u32, max: u32 },
+    GlobalUsers { host: String, nick: String, current: u32, max: u32 },
+    EndOfWho { host: String, nick: String, channel: String },
+    ListEnd { host: String },
     // TODO mode should not be plain strings
-    ChannelModeIs { host: &'a str, nick: &'a str, channel: &'a str, mode_string: &'a str, mode_arguments: &'a str },
-    CreationTime { host: &'a str, nick: &'a str, channel: &'a str, created_at: &'a DateTime<Utc> },
-    Topic { host: &'a str, nick: &'a str, channel: &'a str, topic: &'a str },
-    TopicWhoTime { host: &'a str, channel: &'a str, nick: &'a str, set_at: &'a DateTime<Utc> },
-    WhoReply { host: &'a str, nick: &'a str, channel: &'a str, client: &'a str, other_nick: &'a str },
-    NamReply { host: &'a str, channel: &'a str, nick: &'a str },
-    EndOfNames { host: &'a str, nick: &'a str, channel: &'a str },
-    Motd { host: &'a str, nick: &'a str, line: &'a str },
-    MotdStart { host: &'a str, nick: &'a str },
-    EndOfMotd { host: &'a str, nick: &'a str },
+    ChannelModeIs { host: String, nick: String, channel: String, mode_string: String, mode_arguments: String },
+    CreationTime { host: String, nick: String, channel: String, created_at: DateTime<Utc> },
+    Topic { host: String, nick: String, channel: String, topic: String },
+    TopicWhoTime { host: String, channel: String, nick: String, set_at: DateTime<Utc> },
+    WhoReply { host: String, nick: String, channel: String, client: String, other_nick: String },
+    NamReply { host: String, channel: String, nick: String },
+    EndOfNames { host: String, nick: String, channel: String },
+    Motd { host: String, nick: String, line: String },
+    MotdStart { host: String, nick: String },
+    EndOfMotd { host: String, nick: String },
     // TODO should these non-numerics be in a different file??
-    Ping { host: &'a str },
-    Pong { host: &'a str, token: String },
-    Join { client: &'a str, channel: &'a str },
-    Mode { host: &'a str, channel: &'a str, mode_string: &'a str }
+    Ping { host: String },
+    Pong { host: String, token: String },
+    Join { client: String, channel: String },
+    Mode { host: String, channel: String, mode_string: String }
 }
 
-impl Display for Reply<'_> {
+impl Display for Reply {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Reply::Welcome { host, nick } => write!(f, ":{} 001 {} :Welcome to the server {}", host, nick, nick),
@@ -93,7 +93,7 @@ impl Display for Reply<'_> {
 
 #[test]
 fn welcome_prints_correctly() {
-    let reply = Reply::Welcome { host: "localhost", nick: "JIM" };
+    let reply = Reply::Welcome { host: "localhost".to_string(), nick: "JIM".to_string() };
     let actual = reply.to_string();
     let expected = ":localhost 001 JIM :Welcome to the server JIM";
     assert_eq!(expected, actual);
@@ -101,7 +101,7 @@ fn welcome_prints_correctly() {
 
 #[test]
 fn yourhost_prints_correctly() {
-    let reply = Reply::YourHost { host: "localhost", nick: "JIM", version: "0.0.1" };
+    let reply = Reply::YourHost { host: "localhost".to_string(), nick: "JIM".to_string(), version: "0.0.1".to_string() };
     let actual = reply.to_string();
     let expected = ":localhost 002 JIM :Your host is localhost, running version 0.0.1";
     assert_eq!(expected, actual);
@@ -110,7 +110,7 @@ fn yourhost_prints_correctly() {
 #[test]
 fn created_prints_correctly() {
     let now = Utc::now();
-    let reply = Reply::Created { host: "localhost", nick: "JIM", created_at: &now };
+    let reply = Reply::Created { host: "localhost".to_string(), nick: "JIM".to_string(), created_at: now.clone() };
     let actual = reply.to_string();
     let expected = format!(":localhost 003 JIM :This server was created {}", now);
     assert_eq!(expected, actual);
@@ -118,7 +118,7 @@ fn created_prints_correctly() {
 
 #[test]
 fn myinfo_prints_correctly() {
-    let reply = Reply::MyInfo { host: "localhost", nick: "JIM", version: "0.0.1", user_modes: "r", channel_modes: "i" };
+    let reply = Reply::MyInfo { host: "localhost".to_string(), nick: "JIM".to_string(), version: "0.0.1".to_string(), user_modes: "r".to_string(), channel_modes: "i".to_string() };
     let actual = reply.to_string();
     let expected = format!(":localhost 004 JIM localhost 0.0.1 r i");
     assert_eq!(expected, actual);
@@ -126,7 +126,7 @@ fn myinfo_prints_correctly() {
 
 #[test]
 fn support_prints_correctly() {
-    let reply = Reply::Support { host: "localhost", nick: "JIM", channel_len: 100 };
+    let reply = Reply::Support { host: "localhost".to_string(), nick: "JIM".to_string(), channel_len: 100 };
     let actual = reply.to_string();
     let expected = format!(":localhost 005 JIM CHANNELLEN=100 :are supported by this server");
     assert_eq!(expected, actual);
@@ -134,7 +134,7 @@ fn support_prints_correctly() {
 
 #[test]
 fn luserclient_prints_correctly() {
-    let reply = Reply::LuserClient { host: "localhost", nick: "JIM", visible_users: 100, invisible_users: 20, servers: 1 };
+    let reply = Reply::LuserClient { host: "localhost".to_string(), nick: "JIM".to_string(), visible_users: 100, invisible_users: 20, servers: 1 };
     let actual = reply.to_string();
     let expected = format!(":localhost 251 JIM :There are 100 users and 20 invisible on 1 servers");
     assert_eq!(expected, actual);
@@ -142,7 +142,7 @@ fn luserclient_prints_correctly() {
 
 #[test]
 fn luserop_prints_correctly() {
-    let reply = Reply::LuserOp { host: "localhost", nick: "JIM", operators: 1337 };
+    let reply = Reply::LuserOp { host: "localhost".to_string(), nick: "JIM".to_string(), operators: 1337 };
     let actual = reply.to_string();
     let expected = format!(":localhost 252 JIM 1337 :IRC Operators online");
     assert_eq!(expected, actual);
@@ -150,7 +150,7 @@ fn luserop_prints_correctly() {
 
 #[test]
 fn luserunknown_prints_correctly() {
-    let reply = Reply::LuserUnknown { host: "localhost", nick: "JIM", unknown: 7 };
+    let reply = Reply::LuserUnknown { host: "localhost".to_string(), nick: "JIM".to_string(), unknown: 7 };
     let actual = reply.to_string();
     let expected = format!(":localhost 253 JIM 7 :unknown connection(s)");
     assert_eq!(expected, actual);
@@ -158,7 +158,7 @@ fn luserunknown_prints_correctly() {
 
 #[test]
 fn luserchannels_prints_correctly() {
-    let reply = Reply::LuserChannels { host: "localhost", nick: "JIM", channels: 9999 };
+    let reply = Reply::LuserChannels { host: "localhost".to_string(), nick: "JIM".to_string(), channels: 9999 };
     let actual = reply.to_string();
     let expected = format!(":localhost 254 JIM 9999 :channels formed");
     assert_eq!(expected, actual);
@@ -166,7 +166,7 @@ fn luserchannels_prints_correctly() {
 
 #[test]
 fn luserme_prints_correctly() {
-    let reply = Reply::LuserMe { host: "localhost", nick: "JIM", clients: 900, servers: 1 };
+    let reply = Reply::LuserMe { host: "localhost".to_string(), nick: "JIM".to_string(), clients: 900, servers: 1 };
     let actual = reply.to_string();
     let expected = format!(":localhost 255 JIM :I have 900 clients and 1 servers");
     assert_eq!(expected, actual);
@@ -174,7 +174,7 @@ fn luserme_prints_correctly() {
 
 #[test]
 fn localusers_prints_correctly() {
-    let reply = Reply::LocalUsers { host: "localhost", nick: "JIM", current: 845, max: 1000 };
+    let reply = Reply::LocalUsers { host: "localhost".to_string(), nick: "JIM".to_string(), current: 845, max: 1000 };
     let actual = reply.to_string();
     let expected = format!(":localhost 265 JIM 845 1000 :Current local users 845, max 1000");
     assert_eq!(expected, actual);
@@ -182,7 +182,7 @@ fn localusers_prints_correctly() {
 
 #[test]
 fn globalusers_prints_correctly() {
-    let reply = Reply::GlobalUsers { host: "localhost", nick: "JIM", current: 9823, max: 23455 };
+    let reply = Reply::GlobalUsers { host: "localhost".to_string(), nick: "JIM".to_string(), current: 9823, max: 23455 };
     let actual = reply.to_string();
     let expected = format!(":localhost 266 JIM 9823 23455 :Current global users 9823, max 23455");
     assert_eq!(expected, actual);
@@ -190,7 +190,7 @@ fn globalusers_prints_correctly() {
 
 #[test]
 fn statsdline_prints_correctly() {
-    let reply = Reply::StatsDLine { host: "localhost", nick: "JIM", connections: 9998, clients: 9000, received: 99999 };
+    let reply = Reply::StatsDLine { host: "localhost".to_string(), nick: "JIM".to_string(), connections: 9998, clients: 9000, received: 99999 };
     let actual = reply.to_string();
     let expected = format!(":localhost 250 JIM :Highest connection count: 9998 (9000 clients) (99999 connections received)");
     assert_eq!(expected, actual);
@@ -198,7 +198,7 @@ fn statsdline_prints_correctly() {
 
 #[test]
 fn motdstart_prints_correctly() {
-    let reply = Reply::MotdStart { host: "localhost", nick: "JIM" };
+    let reply = Reply::MotdStart { host: "localhost".to_string(), nick: "JIM".to_string() };
     let actual = reply.to_string();
     let expected = format!(":localhost 375 JIM :- localhost Message of the Day -");
     assert_eq!(expected, actual);
@@ -206,7 +206,7 @@ fn motdstart_prints_correctly() {
 
 #[test]
 fn endofmotd_prints_correctly() {
-    let reply = Reply::EndOfMotd { host: "localhost", nick: "JIM" };
+    let reply = Reply::EndOfMotd { host: "localhost".to_string(), nick: "JIM".to_string() };
     let actual = reply.to_string();
     let expected = format!(":localhost 376 JIM :End of /MOTD command.");
     assert_eq!(expected, actual);
@@ -214,7 +214,7 @@ fn endofmotd_prints_correctly() {
 
 #[test]
 fn motd_prints_correctly() {
-    let reply = Reply::Motd { host: "localhost", nick: "JIM", line: "Foobar" };
+    let reply = Reply::Motd { host: "localhost".to_string(), nick: "JIM".to_string(), line: "Foobar".to_string() };
     let actual = reply.to_string();
     let expected = format!(":localhost 372 JIM :- Foobar");
     assert_eq!(expected, actual);
@@ -222,7 +222,7 @@ fn motd_prints_correctly() {
 
 #[test]
 fn pong_prints_correctly() {
-    let reply = Reply::Pong { host: "localhost", token: "LAG1238948394".to_string() };
+    let reply = Reply::Pong { host: "localhost".to_string(), token: "LAG1238948394".to_string() };
     let actual = reply.to_string();
     let expected = format!(":localhost PONG localhost :LAG1238948394");
     assert_eq!(expected, actual);
@@ -230,7 +230,7 @@ fn pong_prints_correctly() {
 
 #[test]
 fn listend_prints_correctly() {
-    let reply = Reply::ListEnd { host: "localhost" };
+    let reply = Reply::ListEnd { host: "localhost".to_string() };
     let actual = reply.to_string();
     let expected = format!(":localhost 323 :End of /LIST");
     assert_eq!(expected, actual);
@@ -238,7 +238,7 @@ fn listend_prints_correctly() {
 
 #[test]
 fn endofnames_prints_correctly() {
-    let reply = Reply::EndOfNames { host: "localhost", nick: "JIM", channel: "#foobar" };
+    let reply = Reply::EndOfNames { host: "localhost".to_string(), nick: "JIM".to_string(), channel: "#foobar".to_string() };
     let actual = reply.to_string();
     let expected = format!(":localhost 366 JIM #foobar :End of /NAMES list");
     assert_eq!(expected, actual);
@@ -246,7 +246,7 @@ fn endofnames_prints_correctly() {
 
 #[test]
 fn endofwho_prints_correctly() {
-    let reply = Reply::EndOfWho { host: "localhost", nick: "JIM", channel: "#foobar" };
+    let reply = Reply::EndOfWho { host: "localhost".to_string(), nick: "JIM".to_string(), channel: "#foobar".to_string() };
     let actual = reply.to_string();
     let expected = format!(":localhost 315 JIM #foobar :End of /WHO list");
     assert_eq!(expected, actual);
@@ -254,7 +254,7 @@ fn endofwho_prints_correctly() {
 
 #[test]
 fn topic_prints_correctly() {
-    let reply = Reply::Topic { host: "localhost", nick: "JIM", channel: "#foobar", topic: "hELLO WORLD" };
+    let reply = Reply::Topic { host: "localhost".to_string(), nick: "JIM".to_string(), channel: "#foobar".to_string(), topic: "hELLO WORLD".to_string() };
     let actual = reply.to_string();
     let expected = format!(":localhost 332 JIM #foobar :hELLO WORLD");
     assert_eq!(expected, actual);

@@ -4,9 +4,11 @@ mod server;
 mod client_listener;
 mod client_sender;
 
-use std::{collections::{HashMap, VecDeque}, io::{self, BufRead, ErrorKind, Read, Write}, net::{Shutdown, TcpListener, TcpStream}, rc::Rc, str::{FromStr}, sync::{Arc, Mutex, RwLock}, thread, time::{Duration, Instant}};
+use std::{collections::{HashMap}, net::{Shutdown, TcpListener}, sync::{Arc, Mutex, RwLock}, thread, time::{Duration}};
 use chrono::{DateTime, Utc};
 use message_parsing::ClientToServerMessage;
+use replies::Reply;
+use std::io;
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender};
 use uuid::Uuid;
@@ -35,7 +37,7 @@ fn main() -> io::Result<()> {
     let server_connections = connections.clone();
     let server_context = context.clone();
     let server_handle = thread::spawn(move || {
-        server::run_server(server_context, receiver_channel, server_connections);
+        server::run_server(&server_context, receiver_channel, server_connections);
     });
 
     for connection_attempt in listener.incoming() {
@@ -58,9 +60,10 @@ fn main() -> io::Result<()> {
                     .unwrap() // TODO remove unwrap
                     .insert(connection_uuid.clone(), context);
 
+                let mut write_handle = stream.try_clone()?;
                 sender_handles.push(
                     thread::spawn(move || {
-                        if let Err(e) = client_sender::run_sender(&connection_uuid, client_receiver_channel) {
+                        if let Err(e) = client_sender::run_sender(&connection_uuid, client_receiver_channel, &mut write_handle) {
                             println!("ERROR FROM CLIENT SENDER {:?}", e)
                         }
                     })
@@ -117,5 +120,5 @@ pub struct ServerContext {
 
 pub struct ConnectionContext {
     pub uuid: Uuid,
-    pub client_sender_channel: Mutex<Sender<ClientToServerMessage>>
+    pub client_sender_channel: Mutex<Sender<Reply>>
 }
