@@ -4,7 +4,7 @@ use std::sync::mpsc::{Sender};
 use uuid::Uuid;
 use crate::{ServerContext, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
 
-pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<String>, context: ServerContext) -> io::Result<()> {
+pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<ClientToServerMessage>, context: ServerContext) -> io::Result<()> {
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
     // there also needs to be a ping loop going on that can stop this loop too
@@ -31,105 +31,31 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<S
         }
 
         let raw_messages = get_messages(&mut reader)?;
-        let now = Utc::now();
+        let host = &context.host;
 
-        for raw_message in &raw_messages {
+        for raw_message in &raw_messages {    
             let message = ClientToServerMessage::from_str(raw_message).expect("FOO"); // TODO
-            let host = &context.host;
-            let version = &context.version;
-            let created_at = &context.start_time;
-
-            let replies = match &message.command {
-                ClientToServerCommand::Quit => {
-                    return Ok(());
-                },
+            
+            match &message.command {
                 ClientToServerCommand::Unhandled => {
                     println!("MESSAGE UNHANDLED {:?} {}", message, raw_message);
-                    None
                 },
                 ClientToServerCommand::Ping { token } => {
-                    Some(vec![ Reply::Pong { host, token: token.clone() } ])
+                    let pong = format!("{}\r\n", Reply::Pong { host, token: token.clone() }.to_string());
+                    write_handle.write_all(pong.as_bytes())?;
+                    write_handle.flush()?;
                 },
                 ClientToServerCommand::Pong => {
                     last_pong = Instant::now();
                     waiting_for_pong = false;
-                    None
                 },
-                ClientToServerCommand::Join { channels} => {
-                    // add channel join handling
-                    let mut replies: Vec::<Reply> = Vec::new();
-
-                    for channel in channels {
-                        let mut channel_replies = vec![
-                            Reply::Join { client: &connection_client, channel },
-                            // TODO have Nick available here
-                            // TODO persist the channel metadata
-                            Reply::Topic { host, nick: &connection_nick, channel, topic: "foobar topic" },
-                            Reply::TopicWhoTime { host, channel, nick: &connection_nick, set_at: &now },
-                            Reply::NamReply { host, channel, nick: &connection_nick },
-                        ];
-
-                        replies.append(&mut channel_replies);
-                    }
-                    
-                    Some(replies)
+                ClientToServerCommand::Quit => {
+                    return Ok(());
+                    // TODO send this too?
                 },
-                ClientToServerCommand::Mode { channel } => {
-                    Some(vec![ 
-                        Reply::Mode { host, channel, mode_string: "+tn" },
-                        Reply::ChannelModeIs { host, nick: &connection_nick, channel, mode_string: "+mtn1", mode_arguments: "100" },
-                        Reply::CreationTime { host, nick: &connection_nick, channel, created_at: &now } 
-                    ])
-                },
-                ClientToServerCommand::Who { channel } => {
-                    Some(vec![
-                        Reply::WhoReply { host, channel, nick: &connection_nick, other_nick: "~vince", client: "localhost" },
-                        Reply::EndOfWho { host, nick: &connection_nick, channel },
-                    ])
-                },
-                ClientToServerCommand::Nick { nick } => {   
-                    connection_nick = nick.to_string();
-                    connection_client = format!("{}!~{}@localhost", connection_nick, connection_nick);
-                 
-                    let mut welcome_storm = vec![
-                        Reply::Welcome { host, nick },
-                        Reply::YourHost { host, nick, version },
-                        Reply::Created { host, nick, created_at },
-                        Reply::MyInfo { host, nick, version, user_modes: "r", channel_modes: "i" },
-                        Reply::Support { host, nick, channel_len: 32 },
-                        Reply::LuserClient { host, nick, visible_users: 100, invisible_users: 20, servers: 1 },
-                        Reply::LuserOp { host, nick, operators: 1337 },
-                        Reply::LuserUnknown { host, nick, unknown: 7 },
-                        Reply::LuserChannels { host, nick, channels: 9999 },
-                        Reply::LuserMe { host, nick, clients: 900, servers: 1 },
-                        Reply::LocalUsers { host, nick, current: 845, max: 1000 },
-                        Reply::GlobalUsers { host, nick, current: 9832, max: 23455 },
-                        Reply::StatsDLine { host, nick, connections: 9998, clients: 9000, received: 99999 }
-                    ];
-
-                    // TODO proper configurable MOTD
-                    let mut motd_replies = vec![ Reply::Motd { host, nick, line: "Foobar" }];
-                    welcome_storm.push(Reply::MotdStart { host, nick });
-                    welcome_storm.append(&mut motd_replies);
-                    welcome_storm.push(Reply::EndOfMotd { host, nick });
-                    
-                    Some(welcome_storm)
-                }
-            };
-
-            match replies {
-                None => {},
-                Some(messages) => {
-                    let mut reply = String::new();
-
-                    for message in messages {
-                        reply.push_str(&message.to_string());
-                        reply.push_str("\r\n");                        
-                    }
-
-                    println!("SENDING {}", reply);
-                    write_handle.write_all(reply.as_bytes())?;
-                    write_handle.flush()?;
+                _ => {
+                    // TODO handle error
+                    sender.send(message.clone());
                 }
             }
         }

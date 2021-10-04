@@ -1,13 +1,13 @@
 use std::fmt::Display;
 use std::{str::FromStr};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClientToServerMessage {
     pub source: Option<String>,
     pub command: ClientToServerCommand
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ClientToServerCommand {
     Unhandled,
     Nick { nick: String },

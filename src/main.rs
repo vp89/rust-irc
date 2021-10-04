@@ -6,6 +6,7 @@ mod client_sender;
 
 use std::{collections::{HashMap, VecDeque}, io::{self, BufRead, ErrorKind, Read, Write}, net::{Shutdown, TcpListener, TcpStream}, rc::Rc, str::{FromStr}, sync::{Arc, Mutex, RwLock}, thread, time::{Duration, Instant}};
 use chrono::{DateTime, Utc};
+use message_parsing::ClientToServerMessage;
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender};
 use uuid::Uuid;
@@ -32,8 +33,9 @@ fn main() -> io::Result<()> {
     // need to clone the Arc before spawning the thread so that
     // it doesnt take ownership of the original
     let server_connections = connections.clone();
+    let server_context = context.clone();
     let server_handle = thread::spawn(move || {
-        server::run_server(receiver_channel, server_connections);
+        server::run_server(server_context, receiver_channel, server_connections);
     });
 
     for connection_attempt in listener.incoming() {
@@ -55,7 +57,6 @@ fn main() -> io::Result<()> {
                     .write()
                     .unwrap() // TODO remove unwrap
                     .insert(connection_uuid.clone(), context);
-
 
                 sender_handles.push(
                     thread::spawn(move || {
@@ -116,5 +117,5 @@ pub struct ServerContext {
 
 pub struct ConnectionContext {
     pub uuid: Uuid,
-    pub client_sender_channel: Mutex<Sender<String>>
+    pub client_sender_channel: Mutex<Sender<ClientToServerMessage>>
 }
