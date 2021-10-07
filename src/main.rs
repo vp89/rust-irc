@@ -52,7 +52,9 @@ fn main() -> io::Result<()> {
 
                 let context = ConnectionContext {
                     uuid: connection_uuid,
-                    client_sender_channel: Mutex::new(client_sender_channel)
+                    client_sender_channel: Mutex::new(client_sender_channel),
+                    nick: "".to_owned(),
+                    client: "".to_owned()
                 };
 
                 connections
@@ -120,5 +122,7 @@ pub struct ServerContext {
 
 pub struct ConnectionContext {
     pub uuid: Uuid,
+    pub client: String,
+    pub nick: String,
     pub client_sender_channel: Mutex<Sender<Reply>>
 }
