@@ -6,7 +6,6 @@ mod client_sender;
 
 use std::{collections::{HashMap}, net::{Shutdown, TcpListener}, sync::{Arc, Mutex, RwLock}, thread, time::{Duration}};
 use chrono::{DateTime, Utc};
-use message_parsing::ClientToServerMessage;
 use replies::Reply;
 use std::io;
 use std::sync::mpsc;
@@ -22,7 +21,7 @@ fn main() -> io::Result<()> {
         ping_frequency: Duration::from_secs(10)
     };
 
-    println!("STARTING SERVER ON {}:6667", host);
+    println!("Starting server on {}:6667", host);
 
     let listener = TcpListener::bind(format!("{}:6667", host))?;
     let mut listener_handles = vec![];
@@ -37,7 +36,9 @@ fn main() -> io::Result<()> {
     let server_connections = connections.clone();
     let server_context = context.clone();
     let server_handle = thread::spawn(move || {
-        server::run_server(&server_context, receiver_channel, server_connections);
+        if let Err(e) = server::run_server(&server_context, receiver_channel, server_connections) {
+            println!("Error returned from server worker {:?}", e);
+        }
     });
 
     for connection_attempt in listener.incoming() {
@@ -46,15 +47,15 @@ fn main() -> io::Result<()> {
 
         match connection_attempt {
             Ok(stream) => {
-                // use this to identity the connection until we finalize the connection handshake?
+                // pass this around in messages to grab details about this connection/user
                 let connection_uuid = Uuid::new_v4();
                 let (client_sender_channel, client_receiver_channel) = mpsc::channel();
 
                 let context = ConnectionContext {
                     uuid: connection_uuid,
                     client_sender_channel: Mutex::new(client_sender_channel),
-                    nick: "".to_owned(),
-                    client: "".to_owned()
+                    nick: None,
+                    client: None
                 };
 
                 connections
@@ -66,7 +67,7 @@ fn main() -> io::Result<()> {
                 sender_handles.push(
                     thread::spawn(move || {
                         if let Err(e) = client_sender::run_sender(client_receiver_channel, &mut write_handle) {
-                            println!("ERROR FROM CLIENT SENDER {:?}", e)
+                            println!("Error returned from client sender {:?}", e)
                         }
                     })
                 );
@@ -74,22 +75,20 @@ fn main() -> io::Result<()> {
                 listener_handles.push(
                     thread::spawn(move || {
                         if let Err(e) = stream.set_read_timeout(Some(server_context.ping_frequency)) {
-                            println!("ERROR SETTING READ TIMEOUT {:?}", e);
+                            println!("Error setting read timeout {:?}", e);
                             return;
                         }
 
                         if let Err(e) = client_listener::run_listener(&connection_uuid, &stream, cloned_sender_channel, server_context) {
-                            println!("ERROR FROM CLIENT LISTENER {:?}", e)
+                            println!("Error returned from client listener {:?}", e)
                         }
                         
                         if let Err(e) = stream.shutdown(Shutdown::Both) {
-                            println!("ERROR SHUTTING DOWN SOCKET {:?}", e)
+                            println!("Error shutting down socket {:?}", e)
                         }
-
-                        println!("FINISHED HANDLING THIS CONNECTION")
                     }));
             },
-            Err(e) => println!("ERROR CONNECTING {:?}", e),
+            Err(e) => println!("Error connecting {:?}", e),
         };
     }
 
@@ -122,7 +121,7 @@ pub struct ServerContext {
 
 pub struct ConnectionContext {
     pub uuid: Uuid,
-    pub client: String,
-    pub nick: String,
-    pub client_sender_channel: Mutex<Sender<Reply>>
+    pub client_sender_channel: Mutex<Sender<Reply>>,
+    pub client: Option<String>,
+    pub nick: Option<String>
 }

@@ -16,13 +16,13 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
 
     loop {
         if waiting_for_pong && last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() + 5 {
-            println!("NO PONG RECEIVED CLOSING DOWN HANDLER");
+            println!("No pong received, closing down listener");
             return Ok(());
         }
 
         if last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() {
             waiting_for_pong = true;
-            println!("SENDING PING");
+            println!("Sending ping");
             let ping = format!("{}\r\n", Reply::Ping { host: host.clone() }.to_string());
             write_handle.write_all(ping.as_bytes())?;
             write_handle.flush()?;
@@ -35,7 +35,7 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
             
             match &message.command {
                 ClientToServerCommand::Unhandled => {
-                    println!("MESSAGE UNHANDLED {:?} {}", message, raw_message);
+                    println!("Unhandled message received {:?} {}", message, raw_message);
                 },
                 ClientToServerCommand::Ping { token } => {
                     let pong = format!("{}\r\n", Reply::Pong { host: host.clone(), token: token.clone() }.to_string());
@@ -47,12 +47,13 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
                     waiting_for_pong = false;
                 },
                 ClientToServerCommand::Quit => {
+                    // TODO should this send something to the server worker?
                     return Ok(());
-                    // TODO send this too?
                 },
                 _ => {
-                    // TODO handle error
-                    sender.send(message.clone());
+                    if let Err(e) = sender.send(message.clone()) {
+                        println!("Error forwarding message to server {:?}", e);
+                    }
                 }
             }
         }

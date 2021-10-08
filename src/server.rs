@@ -10,7 +10,8 @@ pub fn run_server(
     connections: Arc<RwLock<HashMap<Uuid, ConnectionContext>>>) -> std::io::Result<()> {
     
     let host = context.host.clone();
-
+    let empty_str = &String::from("");
+    
     loop {
         let received = match receiver_channel.recv() {
             Ok(reply) => reply,
@@ -22,8 +23,8 @@ pub fn run_server(
 
         let ctx_version = &context.version;
         let ctx_created_at = &context.start_time;
-        let ctx_client = &conn_ctx.client;
-        let ctx_nick = &conn_ctx.nick;
+        let ctx_client = conn_ctx.client.as_ref().unwrap_or_else(|| empty_str);
+        let ctx_nick = conn_ctx.nick.as_ref().unwrap_or_else(|| empty_str);
         let ctx_sender = conn_ctx.client_sender_channel.lock().unwrap().clone();
 
         match &received.command {
@@ -67,8 +68,8 @@ pub fn run_server(
             ClientToServerCommand::Nick { nick } => {
                 let mut conn_write = connections.write().unwrap();
                 let writable_ctx = conn_write.get_mut(&received.connection_uuid).unwrap();
-                writable_ctx.nick = nick.to_string();
-                writable_ctx.client = format!("{}!~{}@localhost", nick, nick); 
+                writable_ctx.nick = Some(nick.to_string());
+                writable_ctx.client = Some(format!("{}!~{}@localhost", nick, nick)); 
 
                 send_replies(
                     &ctx_sender,
