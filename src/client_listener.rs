@@ -1,5 +1,4 @@
-use std::{collections::VecDeque, io::{self, BufRead, ErrorKind, Read, Write}, net::{TcpStream}, str::{FromStr}, time::{Instant}};
-use chrono::{Utc};
+use std::{collections::VecDeque, io::{self, BufRead, ErrorKind, Read, Write}, net::{TcpStream}, time::{Instant}};
 use std::sync::mpsc::{Sender};
 use uuid::Uuid;
 use crate::{ServerContext, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
@@ -13,8 +12,6 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
     let mut reader = io::BufReader::with_capacity(512, stream);
     let mut last_pong = Instant::now();
     let mut waiting_for_pong = false;
-    let mut connection_nick = "".to_string();
-    let mut connection_client = "".to_string();
     let host = &context.host;
 
     loop {
