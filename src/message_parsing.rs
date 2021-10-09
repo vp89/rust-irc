@@ -93,7 +93,7 @@ impl ClientToServerMessage {
 impl Display for ServerToClientMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let raw_source = match &self.source {
-            Source::Server(s) => s.to_owned(), // TODO remove to_owned
+            Source::Server(s) => s.to_owned(),
             Source::Client { nick, user, host} => format!("{}!{}@{}", nick, user, host) 
         };
 
