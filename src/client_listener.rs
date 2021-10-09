@@ -31,7 +31,7 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
         let raw_messages = get_messages(&mut reader)?;
 
         for raw_message in &raw_messages {    
-            let message = ClientToServerMessage::from_str(raw_message, connection_uuid.clone()).expect("FOO"); // TODO
+            let message = ClientToServerMessage::from_str(raw_message, *connection_uuid).expect("FOO"); // TODO
             
             match &message.command {
                 ClientToServerCommand::Unhandled => {

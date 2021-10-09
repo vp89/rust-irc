@@ -4,7 +4,7 @@ use std::sync::mpsc::{Receiver};
 
 use crate::replies::Reply;
 
-pub fn run_sender<'a>(receiver: Receiver<Reply>, write_handle: &mut TcpStream) -> io::Result<()> {
+pub fn run_sender(receiver: Receiver<Reply>, write_handle: &mut TcpStream) -> io::Result<()> {
     loop {
         let received = match receiver.recv() {
             Ok(reply) => reply,

@@ -23,8 +23,8 @@ pub fn run_server(
 
         let ctx_version = &context.version;
         let ctx_created_at = &context.start_time;
-        let ctx_client = conn_ctx.client.as_ref().unwrap_or_else(|| empty_str);
-        let ctx_nick = conn_ctx.nick.as_ref().unwrap_or_else(|| empty_str);
+        let ctx_client = conn_ctx.client.as_ref().unwrap_or(empty_str);
+        let ctx_nick = conn_ctx.nick.as_ref().unwrap_or(empty_str);
         let ctx_sender = conn_ctx.client_sender_channel.lock().unwrap().clone();
 
         match &received.command {
@@ -39,8 +39,8 @@ pub fn run_server(
                             // TODO have Nick available here
                             // TODO persist the channel metadata
                             Reply::Topic { host: host.clone(), nick: ctx_nick.clone(), channel: channel.clone(), topic: "foobar topic".to_string() },
-                            Reply::TopicWhoTime { host: host.clone(), channel: channel.clone(), nick: ctx_nick.clone(), set_at: now.clone() },
-                            Reply::NamReply { host: host.clone(), channel: channel.clone(), nick: ctx_nick.clone() }
+                            Reply::TopicWhoTime { host: host.clone(), channel: channel.clone(), nick: ctx_nick.clone(), set_at: now },
+                            Reply::Nam { host: host.clone(), channel: channel.clone(), nick: ctx_nick.clone() }
                         ]);
                 }
             },
@@ -52,7 +52,7 @@ pub fn run_server(
                     vec![
                         Reply::Mode { host: host.clone(), channel: channel.clone(), mode_string: "+tn".to_string() },
                         Reply::ChannelModeIs { host: host.clone(), nick: ctx_nick.clone(), channel: channel.clone(), mode_string: "+mtn1".to_string(), mode_arguments: "100".to_string() },
-                        Reply::CreationTime { host: host.clone(), nick: ctx_nick.clone(), channel: channel.clone(), created_at: now.clone() }
+                        Reply::CreationTime { host: host.clone(), nick: ctx_nick.clone(), channel: channel.clone(), created_at: now }
                     ]
                 )
             },
@@ -60,7 +60,7 @@ pub fn run_server(
                 send_replies(
                     &ctx_sender,
                     vec![
-                        Reply::WhoReply { host: host.clone(), channel: channel.clone(), nick: ctx_nick.clone(), other_nick: "~vince".to_string(), client: "localhost".to_string() },
+                        Reply::Who { host: host.clone(), channel: channel.clone(), nick: ctx_nick.clone(), other_nick: "~vince".to_string(), client: "localhost".to_string() },
                         Reply::EndOfWho { host: host.clone(), nick: ctx_nick.clone(), channel: channel.clone() }    
                     ]
                 )
@@ -76,7 +76,7 @@ pub fn run_server(
                     vec![
                         Reply::Welcome { host: host.clone(), nick: nick.clone() },
                         Reply::YourHost { host: host.clone(), nick: nick.clone(), version: ctx_version.clone() },
-                        Reply::Created { host: host.clone(), nick: nick.clone(), created_at: ctx_created_at.clone() },
+                        Reply::Created { host: host.clone(), nick: nick.clone(), created_at: *ctx_created_at },
                         Reply::MyInfo { host: host.clone(), nick: nick.clone(), version: ctx_version.clone(), user_modes: "r".to_string(), channel_modes: "i".to_string() },
                         Reply::Support { host: host.clone(), nick: nick.clone(), channel_len: 32 },
                         Reply::LuserClient { host: host.clone(), nick: nick.clone(), visible_users: 100, invisible_users: 20, servers: 1 },

@@ -61,7 +61,7 @@ fn main() -> io::Result<()> {
                 connections
                     .write()
                     .unwrap() // TODO remove unwrap
-                    .insert(connection_uuid.clone(), context);
+                    .insert(connection_uuid, context);
 
                 let mut write_handle = stream.try_clone()?;
                 sender_handles.push(

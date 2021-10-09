@@ -22,8 +22,8 @@ pub enum Reply {
     CreationTime { host: String, nick: String, channel: String, created_at: DateTime<Utc> },
     Topic { host: String, nick: String, channel: String, topic: String },
     TopicWhoTime { host: String, channel: String, nick: String, set_at: DateTime<Utc> },
-    WhoReply { host: String, nick: String, channel: String, client: String, other_nick: String },
-    NamReply { host: String, channel: String, nick: String },
+    Who { host: String, nick: String, channel: String, client: String, other_nick: String },
+    Nam { host: String, channel: String, nick: String },
     EndOfNames { host: String, nick: String, channel: String },
     Motd { host: String, nick: String, line: String },
     MotdStart { host: String, nick: String },
@@ -72,11 +72,11 @@ impl Display for Reply {
             // TODO print set_at as UNIX time??
             Reply::TopicWhoTime { host, channel, nick, set_at } => write!(f, ":{} 333 {} {} {}", host, nick, channel, set_at),
             // TODO remove hard-coding
-            Reply::WhoReply { host, nick, channel, other_nick, client } => {
+            Reply::Who { host, nick, channel, other_nick, client } => {
                 write!(f, ":{} 352 {} {} {} {} {} {} H@ :0 realname", host, nick, channel, other_nick, client, host, nick)
             },
             //RES -> :<source> 353 nick = #channel :listofusers with @
-            Reply::NamReply { host, channel, nick} => write!(f, ":{} 353 {} = {} :@{}", host, nick, channel, nick),
+            Reply::Nam { host, channel, nick} => write!(f, ":{} 353 {} = {} :@{}", host, nick, channel, nick),
             Reply::EndOfNames { host, nick, channel } => write!(f, ":{} 366 {} {} :End of /NAMES list", host, nick, channel),
             Reply::Motd { host, nick, line } => write!(f, ":{} 372 {} :- {}", host, nick, line),
             Reply::MotdStart { host, nick } => write!(f, ":{} 375 {} :- {} Message of the Day -", host, nick, host),
