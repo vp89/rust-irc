@@ -7,7 +7,6 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
     // there also needs to be a ping loop going on that can stop this loop too
-
     let mut write_handle = stream.try_clone()?;
     let mut reader = io::BufReader::with_capacity(512, stream);
     let mut last_pong = Instant::now();
@@ -21,17 +20,30 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
         }
 
         if last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() {
-            waiting_for_pong = true;
             println!("Sending ping");
+
+            waiting_for_pong = true;
             let ping = format!("{}\r\n", Reply::Ping { host: host.clone() }.to_string());
             write_handle.write_all(ping.as_bytes())?;
             write_handle.flush()?;
         }
 
-        let raw_messages = get_messages(&mut reader)?;
+        let raw_messages = match get_messages(&mut reader) {
+            Ok(m) => m,
+            Err(e) => {
+                println!("Error getting valid messages from the reader {:?}", e);
+                continue;
+            }
+        };
 
         for raw_message in &raw_messages {    
-            let message = ClientToServerMessage::from_str(raw_message, *connection_uuid).expect("FOO"); // TODO
+            let message = match ClientToServerMessage::from_str(raw_message, *connection_uuid) {
+                Ok(m) => m,
+                Err(_) => {
+                    println!("Unable to parse received message {}", raw_message);
+                    continue;
+                }
+            };
             
             match &message.command {
                 ClientToServerCommand::Unhandled => {
@@ -84,7 +96,7 @@ fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
         Ok(s) => {
             let raw_payload = s.to_owned();
 
-            println!("RECEIVED {}", raw_payload);
+            println!("Received {}", raw_payload);
 
             // map to owned String so the ownership can be moved out of this function scope
             let mut split_messages: Vec<String> = raw_payload.split("\r\n").map(|s| s.to_string()).collect();

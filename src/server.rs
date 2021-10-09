@@ -66,8 +66,22 @@ pub fn run_server(
                 )
             },
             ClientToServerCommand::Nick { nick } => {
-                let mut conn_write = connections.write().unwrap();
-                let writable_ctx = conn_write.get_mut(&received.connection_uuid).unwrap();
+                let mut conn_write = match connections.write() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("RwLock on connections map is poisoned {:?}", e);
+                        continue;
+                    }
+                };
+
+                let writable_ctx = match conn_write.get_mut(&received.connection_uuid) {
+                    Some(ctx) => ctx,
+                    None => {
+                        println!("Received a NICK command for an unexpected connection UUID, client worker should be properly initialized before reading from the TcpStream");
+                        continue;
+                    }
+                };
+
                 writable_ctx.nick = Some(nick.to_string());
                 writable_ctx.client = Some(format!("{}!~{}@localhost", nick, nick)); 
 
