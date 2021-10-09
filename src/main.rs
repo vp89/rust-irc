@@ -58,10 +58,8 @@ fn main() -> io::Result<()> {
                     client: None
                 };
 
-                connections
-                    .write()
-                    .unwrap() // TODO remove unwrap
-                    .insert(connection_uuid, context);
+                let mut writeable_map = connections.write().unwrap(); // TODO remove unwrap
+                writeable_map.insert(connection_uuid, context);
 
                 let mut write_handle = stream.try_clone()?;
                 sender_handles.push(
