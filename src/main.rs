@@ -1,15 +1,21 @@
+mod client_listener;
+mod client_sender;
 mod message_parsing;
 mod replies;
 mod server;
-mod client_listener;
-mod client_sender;
 
-use std::{collections::{HashMap}, net::{Shutdown, TcpListener}, sync::{Arc, Mutex, RwLock}, thread, time::{Duration}};
 use chrono::{DateTime, Utc};
 use replies::Reply;
 use std::io;
 use std::sync::mpsc;
-use std::sync::mpsc::{Sender};
+use std::sync::mpsc::Sender;
+use std::{
+    collections::HashMap,
+    net::{Shutdown, TcpListener},
+    sync::{Arc, Mutex, RwLock},
+    thread,
+    time::Duration,
+};
 use uuid::Uuid;
 
 fn main() -> io::Result<()> {
@@ -18,7 +24,7 @@ fn main() -> io::Result<()> {
         start_time: Utc::now(),
         host: host.clone(),
         version: "0.0.1".to_string(),
-        ping_frequency: Duration::from_secs(10)
+        ping_frequency: Duration::from_secs(10),
     };
 
     println!("Starting server on {}:6667", host);
@@ -55,37 +61,48 @@ fn main() -> io::Result<()> {
                     uuid: connection_uuid,
                     client_sender_channel: Mutex::new(client_sender_channel),
                     nick: None,
-                    client: None
+                    client: None,
                 };
 
-                let mut writeable_map = connections.write().unwrap(); // TODO remove unwrap
+                let mut writeable_map = match connections.write() {
+                    Ok(g) => g,
+                    Err(e) => {
+                        println!("Unable to acquire write lock on connections map {:?}", e);
+                        continue;
+                    }
+                };
                 writeable_map.insert(connection_uuid, context);
 
                 let mut write_handle = stream.try_clone()?;
-                sender_handles.push(
-                    thread::spawn(move || {
-                        if let Err(e) = client_sender::run_sender(client_receiver_channel, &mut write_handle) {
-                            println!("Error returned from client sender {:?}", e)
-                        }
-                    })
-                );
+                sender_handles.push(thread::spawn(move || {
+                    if let Err(e) =
+                        client_sender::run_sender(client_receiver_channel, &mut write_handle)
+                    {
+                        println!("Error returned from client sender {:?}", e)
+                    }
+                }));
 
-                listener_handles.push(
-                    thread::spawn(move || {
-                        if let Err(e) = stream.set_read_timeout(Some(server_context.ping_frequency)) {
-                            println!("Error setting read timeout {:?}", e);
-                            return;
-                        }
+                listener_handles.push(thread::spawn(move || {
+                    if let Err(e) = stream.set_read_timeout(Some(server_context.ping_frequency)) {
+                        println!("Error setting read timeout {:?}", e);
+                        return;
+                    }
 
-                        if let Err(e) = client_listener::run_listener(&connection_uuid, &stream, cloned_sender_channel, server_context) {
-                            println!("Error returned from client listener {:?}", e)
-                        }
-                        
-                        if let Err(e) = stream.shutdown(Shutdown::Both) {
-                            println!("Error shutting down socket {:?}", e)
-                        }
-                    }));
-            },
+                    if let Err(e) = client_listener::run_listener(
+                        &connection_uuid,
+                        &stream,
+                        cloned_sender_channel,
+                        server_context,
+                    ) {
+                        println!("Error returned from client listener {:?}", e)
+                    }
+
+                    // TODO sender should shut itself down by receiving a message from server manager?
+                    if let Err(e) = stream.shutdown(Shutdown::Both) {
+                        println!("Error shutting down socket {:?}", e)
+                    }
+                }));
+            }
             Err(e) => println!("Error connecting {:?}", e),
         };
     }
@@ -114,12 +131,12 @@ pub struct ServerContext {
     pub start_time: DateTime<Utc>,
     pub host: String,
     pub version: String,
-    pub ping_frequency: Duration
+    pub ping_frequency: Duration,
 }
 
 pub struct ConnectionContext {
     pub uuid: Uuid,
     pub client_sender_channel: Mutex<Sender<Reply>>,
     pub client: Option<String>,
-    pub nick: Option<String>
+    pub nick: Option<String>,
 }

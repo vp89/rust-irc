@@ -1,9 +1,23 @@
-use std::{collections::VecDeque, io::{self, BufRead, ErrorKind, Read, Write}, net::{TcpStream}, time::{Instant}};
-use std::sync::mpsc::{Sender};
+use crate::{
+    message_parsing::{ClientToServerCommand, ClientToServerMessage},
+    replies::Reply,
+    ServerContext,
+};
+use std::sync::mpsc::Sender;
+use std::{
+    collections::VecDeque,
+    io::{self, BufRead, ErrorKind, Read, Write},
+    net::TcpStream,
+    time::Instant,
+};
 use uuid::Uuid;
-use crate::{ServerContext, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
 
-pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<ClientToServerMessage>, context: ServerContext) -> io::Result<()> {
+pub fn run_listener(
+    connection_uuid: &Uuid,
+    stream: &TcpStream,
+    sender: Sender<ClientToServerMessage>,
+    context: ServerContext,
+) -> io::Result<()> {
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
     // there also needs to be a ping loop going on that can stop this loop too
@@ -14,7 +28,8 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
     let host = &context.host;
 
     loop {
-        if waiting_for_pong && last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() + 5 {
+        if waiting_for_pong && last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() + 5
+        {
             println!("No pong received, closing down listener");
             return Ok(());
         }
@@ -36,7 +51,7 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
             }
         };
 
-        for raw_message in &raw_messages {    
+        for raw_message in &raw_messages {
             let message = match ClientToServerMessage::from_str(raw_message, *connection_uuid) {
                 Ok(m) => m,
                 Err(_) => {
@@ -44,24 +59,31 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
                     continue;
                 }
             };
-            
+
             match &message.command {
                 ClientToServerCommand::Unhandled => {
                     println!("Unhandled message received {:?} {}", message, raw_message);
-                },
+                }
                 ClientToServerCommand::Ping { token } => {
-                    let pong = format!("{}\r\n", Reply::Pong { host: host.clone(), token: token.clone() }.to_string());
+                    let pong = format!(
+                        "{}\r\n",
+                        Reply::Pong {
+                            host: host.clone(),
+                            token: token.clone()
+                        }
+                        .to_string()
+                    );
                     write_handle.write_all(pong.as_bytes())?;
                     write_handle.flush()?;
-                },
+                }
                 ClientToServerCommand::Pong => {
                     last_pong = Instant::now();
                     waiting_for_pong = false;
-                },
+                }
                 ClientToServerCommand::Quit => {
                     // TODO should this send something to the server worker?
                     return Ok(());
-                },
+                }
                 _ => {
                     if let Err(e) = sender.send(message.clone()) {
                         println!("Error forwarding message to server {:?}", e);
@@ -75,19 +97,15 @@ pub fn run_listener(connection_uuid: &Uuid, stream: &TcpStream, sender: Sender<C
 fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
     // TODO can this be cleaned up?
     let bytes = match reader.fill_buf() {
-        Ok(s) => {
-            Ok(s)
-        }
+        Ok(s) => Ok(s),
         Err(e) => match e.kind() {
             // This particular ErrorKind is returned on Unix platforms
             // if the TcpStream timed out per the read_timeout setting
             // would need to test that on Windows if that became a goal to
             // support both of those.
-            ErrorKind::WouldBlock => {
-                return Ok(vec![])
-            },
-            _ => Err(e)
-        }
+            ErrorKind::WouldBlock => return Ok(vec![]),
+            _ => Err(e),
+        },
     }?;
 
     let bytes_read = bytes.len();
@@ -99,22 +117,27 @@ fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
             println!("Received {}", raw_payload);
 
             // map to owned String so the ownership can be moved out of this function scope
-            let mut split_messages: Vec<String> = raw_payload.split("\r\n").map(|s| s.to_string()).collect();
+            let mut split_messages: Vec<String> =
+                raw_payload.split("\r\n").map(|s| s.to_string()).collect();
 
             // TODO create own Error kinds/type??
             if split_messages.len() <= 1 {
-                Err(io::Error::new(io::ErrorKind::InvalidData, "No message separator provided"))
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "No message separator provided",
+                ))
             } else if split_messages.last().unwrap_or(&"BLAH".to_string()) != &format!("") {
-                Err(io::Error::new(io::ErrorKind::InvalidData, "Last message did not have expected separator"))
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Last message did not have expected separator",
+                ))
             } else {
                 split_messages.truncate(split_messages.len() - 1);
                 reader.consume(bytes_read);
                 Ok(split_messages)
             }
-        },
-        Err(e) => {
-            Err(io::Error::new(io::ErrorKind::InvalidData, e))
         }
+        Err(e) => Err(io::Error::new(io::ErrorKind::InvalidData, e)),
     }
 }
 
@@ -125,7 +148,7 @@ fn get_messages_reads_from_buffer() {
     faked_responses.push_back(13);
     let mut faked_bufreader = FakeBufReader {
         fake_buffer,
-        faked_responses
+        faked_responses,
     };
 
     let result = get_messages(&mut faked_bufreader).unwrap();
@@ -141,7 +164,7 @@ fn get_messages_multiplemessages_reads_from_buffer() {
     faked_responses.push_back(21);
     let mut faked_bufreader = FakeBufReader {
         fake_buffer,
-        faked_responses
+        faked_responses,
     };
 
     let result = get_messages(&mut faked_bufreader).unwrap();
@@ -158,11 +181,15 @@ fn get_messages_multiplemessages_noterminator_errors() {
     faked_responses.push_back(19);
     let mut faked_bufreader = FakeBufReader {
         fake_buffer,
-        faked_responses
+        faked_responses,
     };
 
-    let result = get_messages(&mut faked_bufreader).expect_err("Testing expect an error to be returned here");
-    assert_eq!("Last message did not have expected separator", result.to_string());
+    let result = get_messages(&mut faked_bufreader)
+        .expect_err("Testing expect an error to be returned here");
+    assert_eq!(
+        "Last message did not have expected separator",
+        result.to_string()
+    );
 }
 
 #[test]
@@ -172,10 +199,11 @@ fn get_messages_nolineterminator_errors() {
     faked_responses.push_back(11);
     let mut faked_bufreader = FakeBufReader {
         fake_buffer,
-        faked_responses
+        faked_responses,
     };
 
-    let result = get_messages(&mut faked_bufreader).expect_err("Testing expect an error to be returned here");
+    let result = get_messages(&mut faked_bufreader)
+        .expect_err("Testing expect an error to be returned here");
     assert_eq!("No message separator provided", result.to_string());
 }
 
@@ -186,7 +214,7 @@ fn get_messages_emptybuffer_errors() {
     faked_responses.push_back(0);
     let mut faked_bufreader = FakeBufReader {
         fake_buffer,
-        faked_responses
+        faked_responses,
     };
 
     get_messages(&mut faked_bufreader).expect_err("Testing expect an error to be returned here");
@@ -194,16 +222,17 @@ fn get_messages_emptybuffer_errors() {
 
 struct FakeBufReader {
     fake_buffer: Vec<u8>,
-    faked_responses: VecDeque<usize> // implement as a queue so you can mock which bytes returned on each read call
+    faked_responses: VecDeque<usize>, // implement as a queue so you can mock which bytes returned on each read call
 }
 
 impl BufRead for FakeBufReader {
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         match self.faked_responses.pop_front() {
-            Some(b) => {
-                Ok(&self.fake_buffer[..b])
-            },
-            None => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "bad test setup"))
+            Some(b) => Ok(&self.fake_buffer[..b]),
+            None => Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "bad test setup",
+            )),
         }
     }
 
