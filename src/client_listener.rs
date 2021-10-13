@@ -30,7 +30,7 @@ pub fn run_listener(
     loop {
         if waiting_for_pong && last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() + 5
         {
-            println!("No pong received, closing down listener");
+            println!("No pong received, last pong received {} secs ago. Closing down listener", last_pong.elapsed().as_secs());
             return Ok(());
         }
 
@@ -77,6 +77,7 @@ pub fn run_listener(
                     write_handle.flush()?;
                 }
                 ClientToServerCommand::Pong => {
+                    println!("RECEIVED PONG");
                     last_pong = Instant::now();
                     waiting_for_pong = false;
                 }

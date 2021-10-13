@@ -17,6 +17,7 @@ pub enum ClientToServerCommand {
     Join { channels: Vec<String> },
     Mode { channel: String },
     Who { channel: String },
+    PrivMsg { channel: String, message: String },
     Pong,
     Quit,
 }
@@ -58,6 +59,11 @@ impl ClientToServerMessage {
         let raw_command = words.next().unwrap(); // TODO remove unwrap
 
         let command = match raw_command {
+            "PRIVMSG" => {
+                let channel = words.next().unwrap().to_owned(); // TODO handle error
+                let message = words.next().unwrap().to_owned(); // TODO handle error
+                ClientToServerCommand::PrivMsg { }
+            }
             "NICK" => {
                 let nick = words.next().unwrap().to_owned(); // TODO handle error
                 ClientToServerCommand::Nick { nick }

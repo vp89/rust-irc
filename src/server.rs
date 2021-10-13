@@ -22,6 +22,7 @@ pub fn run_server(
 ) -> std::io::Result<()> {
     let host = context.host.clone();
     let empty_str = &String::from("");
+    let channels: HashMap<String, ChannelContext> = HashMap::new();
 
     loop {
         let received = match receiver_channel.recv() {
@@ -241,6 +242,38 @@ pub fn run_server(
                             },
                         ],
                     ),
+                    ClientToServerCommand::PrivMsg { channel, message } => {
+                        // TODO THIS NEEDS TO BE COMPLETED JUST STANDING UP THE SKELETON
+
+                        // get channel membership
+                        let channel = match channels.get(channel) {
+                            Some(c) => c,
+                            None => {
+                                println!("Unable to send message to channel {}, not found", channel);
+                                continue;
+                            }
+                        };
+
+                        for member in channel.members {
+                            let connected_member = match conn_read.get(&member) {
+                                Some(conn) => conn,
+                                None => {
+                                    println!("Unable to find member {} in connections map", member);
+                                    continue;
+                                }
+                            };
+                            send_replies(
+                                &connected_member.client_sender_channel.lock().unwrap().clone(),
+                                vec![
+                                    Reply::EndOfWho {
+                                        host: host.clone(),
+                                        nick: ctx_nick.clone(),
+                                        channel: "foobar".to_owned(),
+                                    }
+                                ]
+                            );
+                        }
+                    }
                     // these won't make it here
                     ClientToServerCommand::Nick { .. } => {}
                     ClientToServerCommand::Unhandled { .. } => {}
@@ -260,4 +293,8 @@ fn send_replies(sender: &Sender<Reply>, replies: Vec<Reply>) {
             return;
         }
     }
+}
+
+struct ChannelContext {
+    members: Vec<Uuid>
 }
