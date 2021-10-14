@@ -156,6 +156,11 @@ pub enum Reply {
         channel: String,
         mode_string: String,
     },
+    PrivMsg {
+        client: String,
+        channel: String,
+        message: String
+    }
 }
 
 impl Display for Reply {
@@ -364,6 +369,11 @@ impl Display for Reply {
                 channel,
                 mode_string,
             } => write!(f, ":{} MODE {} {}", host, channel, mode_string),
+            Reply::PrivMsg {
+                client,
+                channel,
+                message
+            } => write!(f, ":{} PRIVMSG {} :{}", client, channel, message)
         }
     }
 }

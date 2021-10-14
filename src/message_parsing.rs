@@ -62,7 +62,7 @@ impl ClientToServerMessage {
             "PRIVMSG" => {
                 let channel = words.next().unwrap().to_owned(); // TODO handle error
                 let message = words.next().unwrap().to_owned(); // TODO handle error
-                ClientToServerCommand::PrivMsg { }
+                ClientToServerCommand::PrivMsg { channel, message }
             }
             "NICK" => {
                 let nick = words.next().unwrap().to_owned(); // TODO handle error

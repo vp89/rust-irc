@@ -22,7 +22,7 @@ pub fn run_server(
 ) -> std::io::Result<()> {
     let host = context.host.clone();
     let empty_str = &String::from("");
-    let channels: HashMap<String, ChannelContext> = HashMap::new();
+    let mut srv_channels: HashMap<String, ChannelContext> = HashMap::new();
 
     loop {
         let received = match receiver_channel.recv() {
@@ -168,6 +168,16 @@ pub fn run_server(
                         let now = Utc::now();
 
                         for channel in channels {
+                            if !srv_channels.contains_key(channel) {
+                                srv_channels.insert(
+                                    channel.clone(),
+                                    // TODO this probably won't be right eventually
+                                    // if there needs to be persisted channel ownership?
+                                    ChannelContext {
+                                        members: vec![received.connection_uuid]
+                                    });
+                            }
+
                             send_replies(
                                 &ctx_sender,
                                 vec![
@@ -243,10 +253,7 @@ pub fn run_server(
                         ],
                     ),
                     ClientToServerCommand::PrivMsg { channel, message } => {
-                        // TODO THIS NEEDS TO BE COMPLETED JUST STANDING UP THE SKELETON
-
-                        // get channel membership
-                        let channel = match channels.get(channel) {
+                        let channel_ctx = match srv_channels.get(channel) {
                             Some(c) => c,
                             None => {
                                 println!("Unable to send message to channel {}, not found", channel);
@@ -254,7 +261,7 @@ pub fn run_server(
                             }
                         };
 
-                        for member in channel.members {
+                        for member in &channel_ctx.members {
                             let connected_member = match conn_read.get(&member) {
                                 Some(conn) => conn,
                                 None => {
@@ -263,12 +270,13 @@ pub fn run_server(
                                 }
                             };
                             send_replies(
+                                // TODO get rid of unwrap
                                 &connected_member.client_sender_channel.lock().unwrap().clone(),
                                 vec![
-                                    Reply::EndOfWho {
-                                        host: host.clone(),
-                                        nick: ctx_nick.clone(),
-                                        channel: "foobar".to_owned(),
+                                    Reply::PrivMsg {
+                                        client: host.clone(),
+                                        channel: channel.clone(),
+                                        message: message.clone()
                                     }
                                 ]
                             );
