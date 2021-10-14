@@ -49,14 +49,23 @@ impl ClientToServerMessage {
         let mut words = s.split_whitespace();
 
         let source = if has_source {
-            let raw_source = words.next().unwrap().trim_start_matches(':').to_owned(); // TODO fix this??
-            Some(raw_source)
+            match words.next() {
+                Some(s) => Some(s.trim_start_matches(':').to_owned()),
+                None => None
+            }
         } else {
             None
         };
 
-        // TODO case sensitivity?
-        let raw_command = words.next().unwrap(); // TODO remove unwrap
+        let mut raw_command = match words.next() {
+            Some(s) => s,
+            None => {
+                return Err(())
+            }
+        };
+
+        let uppercased = raw_command.to_uppercase();
+        raw_command = uppercased.as_ref();
 
         let command = match raw_command {
             "PRIVMSG" => {
@@ -112,6 +121,14 @@ impl Display for ServerToClientMessage {
 }
 
 #[test]
+fn client_to_server_justprefix_returnserror() {
+    let raw_str = ":";
+    ClientToServerMessage::from_str(raw_str, Uuid::new_v4()).expect_err("Expected error!"); 
+    let raw_str = ":abc";
+    ClientToServerMessage::from_str(raw_str, Uuid::new_v4()).expect_err("Expected error!");    
+}
+
+#[test]
 fn client_to_server_has_prefix_is_parsed() {
     let expected_nick = format!("Joe");
     let uuid = Uuid::new_v4();
@@ -148,6 +165,24 @@ fn client_to_server_no_prefix_is_parsed() {
         connection_uuid: uuid,
     };
     let raw_str = &format!("NICK {}", expected_nick);
+    let message =
+        ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid prefix");
+    let actual_command = message.command;
+    assert_eq!(expected_message.command, actual_command);
+}
+
+#[test]
+fn client_to_server_lowercase_is_parsed() {
+    let expected_nick = format!("Joe");
+    let uuid = Uuid::new_v4();
+    let expected_message = ClientToServerMessage {
+        source: None,
+        command: ClientToServerCommand::Nick {
+            nick: expected_nick.clone(),
+        },
+        connection_uuid: uuid,
+    };
+    let raw_str = &format!("nick {}", expected_nick);
     let message =
         ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid prefix");
     let actual_command = message.command;
