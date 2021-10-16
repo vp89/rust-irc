@@ -1,6 +1,7 @@
 mod client_listener;
 mod client_sender;
 mod message_parsing;
+mod error;
 mod replies;
 mod server;
 

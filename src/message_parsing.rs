@@ -1,6 +1,5 @@
-use std::fmt::Display;
-
 use uuid::Uuid;
+use crate::error::Error::{*, self};
 
 #[derive(Debug, Clone)]
 pub struct ClientToServerMessage {
@@ -22,29 +21,9 @@ pub enum ClientToServerCommand {
     Quit,
 }
 
-#[derive(Debug)]
-pub struct ServerToClientMessage {
-    pub source: Source,
-}
-
-#[derive(Debug)]
-pub enum Source {
-    Server(String),
-    Client {
-        nick: String,
-        user: String,
-        host: String,
-    },
-}
-
-#[derive(Debug)]
-pub struct ServerToServerMessage {
-    pub source: String,
-}
-
 // TODO this doesnt handle NICK params
 impl ClientToServerMessage {
-    pub fn from_str(s: &str, conn_uuid: Uuid) -> Result<Self, ()> {
+    pub fn from_str(s: &str, conn_uuid: Uuid) -> Result<Self, Error> {
         let has_source = s.starts_with(':');
         let mut words = s.split_whitespace();
 
@@ -58,19 +37,25 @@ impl ClientToServerMessage {
         };
 
         let mut raw_command = match words.next() {
-            Some(s) => s,
-            None => {
-                return Err(())
-            }
-        };
+            Some(s) => Ok(s),
+            None => Err(MessageParsingErrorMissingCommand)
+        }?;
 
         let uppercased = raw_command.to_uppercase();
         raw_command = uppercased.as_ref();
 
         let command = match raw_command {
             "PRIVMSG" => {
-                let channel = words.next().unwrap().to_owned(); // TODO handle error
-                let message = words.next().unwrap().to_owned(); // TODO handle error
+                let channel = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingCommand)
+                }?;
+
+                let message = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingCommand)
+                }?;
+
                 ClientToServerCommand::PrivMsg { channel, message }
             }
             "NICK" => {
@@ -106,17 +91,6 @@ impl ClientToServerMessage {
         };
 
         Ok(message)
-    }
-}
-
-impl Display for ServerToClientMessage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let raw_source = match &self.source {
-            Source::Server(s) => s.to_owned(),
-            Source::Client { nick, user, host } => format!("{}!{}@{}", nick, user, host),
-        };
-
-        write!(f, ":{}", raw_source)
     }
 }
 
@@ -225,32 +199,4 @@ fn from_client_join_multiplechannels_is_parsed() {
     let message =
         ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
     assert_eq!(expected_message.command, message.command);
-}
-
-#[test]
-fn server_to_client_from_server_is_valid() {
-    let source = "foobar".to_owned();
-    let message = ServerToClientMessage {
-        source: Source::Server(source.to_owned()),
-    };
-    let actual = message.to_string();
-    let expected = format!(":{}", source);
-    assert_eq!(expected, actual);
-}
-
-#[test]
-fn server_to_client_from_client_is_valid() {
-    let nick = "foo";
-    let user = "bar";
-    let host = "baz";
-    let message = ServerToClientMessage {
-        source: Source::Client {
-            nick: nick.to_owned(),
-            user: user.to_owned(),
-            host: host.to_owned(),
-        },
-    };
-    let actual = message.to_string();
-    let expected = format!(":{}!{}@{}", nick, user, host);
-    assert_eq!(expected, actual);
 }

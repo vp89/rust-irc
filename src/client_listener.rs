@@ -1,8 +1,4 @@
-use crate::{
-    message_parsing::{ClientToServerCommand, ClientToServerMessage},
-    replies::Reply,
-    ServerContext,
-};
+use crate::{ServerContext, error::Error::MessageParsingErrorMissingCommand, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
 use std::sync::mpsc::Sender;
 use std::{
     collections::VecDeque,
@@ -54,8 +50,10 @@ pub fn run_listener(
         for raw_message in &raw_messages {
             let message = match ClientToServerMessage::from_str(raw_message, *connection_uuid) {
                 Ok(m) => m,
-                Err(_) => {
-                    println!("Unable to parse received message {}", raw_message);
+                Err(e) => {
+                    match e {
+                        MessageParsingErrorMissingCommand => println!("Unable to parse received message {}", raw_message)
+                    }
                     continue;
                 }
             };
