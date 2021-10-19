@@ -1,10 +1,12 @@
 use std::fmt::Display;
 use std::fmt::Debug;
+use std::sync::mpsc::RecvError;
 
 #[derive(Debug)]
 pub enum Error {
     MessageParsingErrorMissingCommand,
     MessageParsingErrorMissingParameter { param_name: String },
+    ServerToClientChannelReceiveError(RecvError)
 }
 
 impl Display for Error {
@@ -18,6 +20,13 @@ impl Display for Error {
                     f,
                     "Error parsing message, {} parameter is missing",
                     param_name
+                )
+            }
+            Error::ServerToClientChannelReceiveError(e) => {
+                write!(
+                    f,
+                    "Error receiving outbound message from server worker {:?}",
+                    e
                 )
             }
         }

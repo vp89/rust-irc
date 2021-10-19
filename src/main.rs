@@ -3,6 +3,7 @@ mod client_sender;
 mod error;
 mod message_parsing;
 mod replies;
+mod result;
 mod server;
 
 use chrono::{DateTime, Utc};
