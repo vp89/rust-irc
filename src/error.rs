@@ -6,7 +6,8 @@ use std::sync::mpsc::RecvError;
 pub enum Error {
     MessageParsingErrorMissingCommand,
     MessageParsingErrorMissingParameter { param_name: String },
-    ServerToClientChannelReceiveError(RecvError)
+    ServerToClientChannelFailedToReceive(RecvError),
+    ClientToServerChannelFailedToReceive(RecvError),
 }
 
 impl Display for Error {
@@ -22,10 +23,17 @@ impl Display for Error {
                     param_name
                 )
             }
-            Error::ServerToClientChannelReceiveError(e) => {
+            Error::ServerToClientChannelFailedToReceive(e) => {
                 write!(
                     f,
                     "Error receiving outbound message from server worker {:?}",
+                    e
+                )
+            }
+            Error::ClientToServerChannelFailedToReceive(e) => {
+                write!(
+                    f,
+                    "Error receiving inbound message to server worker {:?}",
                     e
                 )
             }

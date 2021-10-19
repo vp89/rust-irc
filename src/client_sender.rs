@@ -4,13 +4,13 @@ use std::sync::mpsc::Receiver;
 
 use crate::replies::Reply;
 use crate::result::Result;
-use crate::error::Error::ServerToClientChannelReceiveError;
+use crate::error::Error::ServerToClientChannelFailedToReceive;
 
 pub fn run_sender(receiver: Receiver<Reply>, write_handle: &mut TcpStream) -> Result<()> {
     loop {
         let received = receiver
             .recv()
-            .map_err(|e| ServerToClientChannelReceiveError(e))?;
+            .map_err(ServerToClientChannelFailedToReceive)?;
 
         let reply = &format!("{}{}", &received.to_string(), "\r\n");
         println!("Sending {}", reply);

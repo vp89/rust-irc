@@ -1,4 +1,5 @@
-use crate::error::Error::{self, *};
+use crate::error::Error::*;
+use crate::result::Result;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -23,7 +24,7 @@ pub enum ClientToServerCommand {
 
 // TODO this doesnt handle NICK params
 impl ClientToServerMessage {
-    pub fn from_str(s: &str, conn_uuid: Uuid) -> Result<Self, Error> {
+    pub fn from_str(s: &str, conn_uuid: Uuid) -> Result<Self> {
         let has_source = s.starts_with(':');
         let mut words = s.split_whitespace();
 

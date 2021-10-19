@@ -15,20 +15,20 @@ use crate::{
     ConnectionContext, ServerContext,
 };
 
+use crate::result::Result;
+use crate::error::Error::ClientToServerChannelFailedToReceive;
+
 pub fn run_server(
     context: &ServerContext,
     receiver_channel: Receiver<ClientToServerMessage>,
     connections: Arc<RwLock<HashMap<Uuid, ConnectionContext>>>,
-) -> std::io::Result<()> {
+) -> Result<()> {
     let host = context.host.clone();
     let empty_str = &String::from("");
     let mut srv_channels: HashMap<String, ChannelContext> = HashMap::new();
 
     loop {
-        let received = match receiver_channel.recv() {
-            Ok(reply) => reply,
-            Err(_e) => return Err(Error::new(ErrorKind::BrokenPipe, "Sender has disconnected")),
-        };
+        let received = receiver_channel.recv().map_err(ClientToServerChannelFailedToReceive)?;
 
         match &received.command {
             // These require modifying the connection context
