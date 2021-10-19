@@ -1,4 +1,8 @@
-use crate::{ServerContext, error::Error::MessageParsingErrorMissingCommand, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
+use crate::{
+    message_parsing::{ClientToServerCommand, ClientToServerMessage},
+    replies::Reply,
+    ServerContext,
+};
 use std::sync::mpsc::Sender;
 use std::{
     collections::VecDeque,
@@ -26,7 +30,10 @@ pub fn run_listener(
     loop {
         if waiting_for_pong && last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() + 5
         {
-            println!("No pong received, last pong received {} secs ago. Closing down listener", last_pong.elapsed().as_secs());
+            println!(
+                "No pong received, last pong received {} secs ago. Closing down listener",
+                last_pong.elapsed().as_secs()
+            );
             return Ok(());
         }
 
@@ -51,9 +58,7 @@ pub fn run_listener(
             let message = match ClientToServerMessage::from_str(raw_message, *connection_uuid) {
                 Ok(m) => m,
                 Err(e) => {
-                    match e {
-                        MessageParsingErrorMissingCommand => println!("Unable to parse received message {}", raw_message)
-                    }
+                    println!("{}", e);
                     continue;
                 }
             };

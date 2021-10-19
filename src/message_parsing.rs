@@ -1,5 +1,5 @@
+use crate::error::Error::{self, *};
 use uuid::Uuid;
-use crate::error::Error::{*, self};
 
 #[derive(Debug, Clone)]
 pub struct ClientToServerMessage {
@@ -28,17 +28,14 @@ impl ClientToServerMessage {
         let mut words = s.split_whitespace();
 
         let source = if has_source {
-            match words.next() {
-                Some(s) => Some(s.trim_start_matches(':').to_owned()),
-                None => None
-            }
+            words.next().map(|s| s.trim_start_matches(':').to_owned())
         } else {
             None
         };
 
         let mut raw_command = match words.next() {
             Some(s) => Ok(s),
-            None => Err(MessageParsingErrorMissingCommand)
+            None => Err(MessageParsingErrorMissingCommand),
         }?;
 
         let uppercased = raw_command.to_uppercase();
@@ -48,35 +45,69 @@ impl ClientToServerMessage {
             "PRIVMSG" => {
                 let channel = match words.next() {
                     Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingCommand)
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "channel".to_string(),
+                    }),
                 }?;
 
                 let message = match words.next() {
                     Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingCommand)
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "message".to_string(),
+                    }),
                 }?;
 
                 ClientToServerCommand::PrivMsg { channel, message }
             }
             "NICK" => {
-                let nick = words.next().unwrap().to_owned(); // TODO handle error
+                let nick = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "nick".to_string(),
+                    }),
+                }?;
+
                 ClientToServerCommand::Nick { nick }
             }
             "PING" => {
-                let token = words.next().unwrap().to_owned(); // TODO handle error
+                let token = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "token".to_string(),
+                    }),
+                }?;
+
                 ClientToServerCommand::Ping { token }
             }
             "JOIN" => {
-                let raw_channels: String = words.next().unwrap().to_owned();
+                let raw_channels: String = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "channels".to_string(),
+                    }),
+                }?;
+
                 let channels = raw_channels.split(',').map(|s| s.to_string()).collect();
                 ClientToServerCommand::Join { channels }
             }
             "MODE" => {
-                let channel = words.next().unwrap().to_owned(); // TODO handle error
+                let channel = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "channel".to_string(),
+                    }),
+                }?;
+
                 ClientToServerCommand::Mode { channel }
             }
             "WHO" => {
-                let channel = words.next().unwrap().to_owned(); // TODO handle error
+                let channel = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "channel".to_string(),
+                    }),
+                }?;
+
                 ClientToServerCommand::Who { channel }
             }
             "PONG" => ClientToServerCommand::Pong,
@@ -97,9 +128,9 @@ impl ClientToServerMessage {
 #[test]
 fn client_to_server_justprefix_returnserror() {
     let raw_str = ":";
-    ClientToServerMessage::from_str(raw_str, Uuid::new_v4()).expect_err("Expected error!"); 
+    ClientToServerMessage::from_str(raw_str, Uuid::new_v4()).expect_err("Expected error!");
     let raw_str = ":abc";
-    ClientToServerMessage::from_str(raw_str, Uuid::new_v4()).expect_err("Expected error!");    
+    ClientToServerMessage::from_str(raw_str, Uuid::new_v4()).expect_err("Expected error!");
 }
 
 #[test]

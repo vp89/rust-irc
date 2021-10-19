@@ -159,8 +159,8 @@ pub enum Reply {
     PrivMsg {
         client: String,
         channel: String,
-        message: String
-    }
+        message: String,
+    },
 }
 
 impl Display for Reply {
@@ -372,8 +372,8 @@ impl Display for Reply {
             Reply::PrivMsg {
                 client,
                 channel,
-                message
-            } => write!(f, ":{} PRIVMSG {} :{}", client, channel, message)
+                message,
+            } => write!(f, ":{} PRIVMSG {} :{}", client, channel, message),
         }
     }
 }
