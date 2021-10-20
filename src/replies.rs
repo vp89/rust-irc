@@ -1,150 +1,150 @@
 use chrono::{DateTime, Utc};
-use std::fmt::Display;
+use std::{fmt::Display, net::SocketAddr};
 
 pub enum Reply {
     Welcome {
-        host: String,
+        server_host: String,
         nick: String,
     },
     YourHost {
-        host: String,
+        server_host: String,
         nick: String,
         version: String,
     },
     Created {
-        host: String,
+        server_host: String,
         nick: String,
         created_at: DateTime<Utc>,
     },
     MyInfo {
-        host: String,
+        server_host: String,
         nick: String,
         version: String,
         user_modes: String,
         channel_modes: String,
     },
     Support {
-        host: String,
+        server_host: String,
         nick: String,
         channel_len: u32,
     },
     StatsDLine {
-        host: String,
+        server_host: String,
         nick: String,
         connections: u32,
         clients: u32,
         received: u32,
     },
     LuserClient {
-        host: String,
+        server_host: String,
         nick: String,
         visible_users: u32,
         invisible_users: u32,
         servers: u32,
     },
     LuserOp {
-        host: String,
+        server_host: String,
         nick: String,
         operators: u32,
     },
     LuserUnknown {
-        host: String,
+        server_host: String,
         nick: String,
         unknown: u32,
     },
     LuserChannels {
-        host: String,
+        server_host: String,
         nick: String,
         channels: u32,
     },
     LuserMe {
-        host: String,
+        server_host: String,
         nick: String,
         clients: u32,
         servers: u32,
     },
     LocalUsers {
-        host: String,
+        server_host: String,
         nick: String,
         current: u32,
         max: u32,
     },
     GlobalUsers {
-        host: String,
+        server_host: String,
         nick: String,
         current: u32,
         max: u32,
     },
     EndOfWho {
-        host: String,
+        server_host: String,
         nick: String,
         channel: String,
     },
     ListEnd {
-        host: String,
+        server_host: String,
     },
     // TODO mode should not be plain strings
     ChannelModeIs {
-        host: String,
+        server_host: String,
         nick: String,
         channel: String,
         mode_string: String,
         mode_arguments: String,
     },
     CreationTime {
-        host: String,
+        server_host: String,
         nick: String,
         channel: String,
         created_at: DateTime<Utc>,
     },
     Topic {
-        host: String,
+        server_host: String,
         nick: String,
         channel: String,
         topic: String,
     },
     TopicWhoTime {
-        host: String,
+        server_host: String,
         channel: String,
         nick: String,
         set_at: DateTime<Utc>,
     },
     Who {
-        host: String,
+        server_host: String,
         nick: String,
         channel: String,
         client: String,
         other_nick: String,
     },
     Nam {
-        host: String,
+        server_host: String,
         channel: String,
         nick: String,
     },
     EndOfNames {
-        host: String,
+        server_host: String,
         nick: String,
         channel: String,
     },
     Motd {
-        host: String,
+        server_host: String,
         nick: String,
         line: String,
     },
     MotdStart {
-        host: String,
+        server_host: String,
         nick: String,
     },
     EndOfMotd {
-        host: String,
+        server_host: String,
         nick: String,
     },
     // TODO should these non-numerics be in a different file??
     Ping {
-        host: String,
+        server_host: String,
     },
     Pong {
-        host: String,
+        server_host: String,
         token: String,
     },
     Join {
@@ -152,12 +152,14 @@ pub enum Reply {
         channel: String,
     },
     Mode {
-        host: String,
+        server_host: String,
         channel: String,
         mode_string: String,
     },
     PrivMsg {
-        client: String,
+        client_host: Option<SocketAddr>,
+        nick: Option<String>,
+        user: Option<String>,
         channel: String,
         message: String,
     },
@@ -166,29 +168,30 @@ pub enum Reply {
 impl Display for Reply {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Reply::Welcome { host, nick } => {
-                write!(f, ":{} 001 {} :Welcome to the server {}", host, nick, nick)
+            Reply::Welcome { server_host, nick } => {
+                write!(f, ":{} 001 {} :Welcome to the server {}", server_host, nick, nick)
             }
+            // TODO should this show client host too?
             Reply::YourHost {
-                host,
+                server_host,
                 nick,
                 version,
             } => write!(
                 f,
                 ":{} 002 {} :Your host is {}, running version {}",
-                host, nick, host, version
+                server_host, nick, server_host, version
             ),
             Reply::Created {
-                host,
+                server_host,
                 nick,
                 created_at,
             } => write!(
                 f,
                 ":{} 003 {} :This server was created {}",
-                host, nick, created_at
+                server_host, nick, created_at
             ),
             Reply::MyInfo {
-                host,
+                server_host,
                 nick,
                 version,
                 user_modes,
@@ -197,29 +200,29 @@ impl Display for Reply {
                 write!(
                     f,
                     ":{} 004 {} {} {} {} {}",
-                    host, nick, host, version, user_modes, channel_modes
+                    server_host, nick, server_host, version, user_modes, channel_modes
                 )
             }
             Reply::Support {
-                host,
+                server_host,
                 nick,
                 channel_len,
             } => write!(
                 f,
                 ":{} 005 {} CHANNELLEN={} :are supported by this server",
-                host, nick, channel_len
+                server_host, nick, channel_len
             ),
             Reply::StatsDLine {
-                host,
+                server_host,
                 nick,
                 connections,
                 clients,
                 received,
             } => {
-                write!(f, ":{} 250 {} :Highest connection count: {} ({} clients) ({} connections received)", host, nick, connections, clients, received)
+                write!(f, ":{} 250 {} :Highest connection count: {} ({} clients) ({} connections received)", server_host, nick, connections, clients, received)
             }
             Reply::LuserClient {
-                host,
+                server_host,
                 nick,
                 visible_users,
                 invisible_users,
@@ -228,44 +231,44 @@ impl Display for Reply {
                 write!(
                     f,
                     ":{} 251 {} :There are {} users and {} invisible on {} servers",
-                    host, nick, visible_users, invisible_users, servers
+                    server_host, nick, visible_users, invisible_users, servers
                 )
             }
             Reply::LuserOp {
-                host,
+                server_host,
                 nick,
                 operators,
             } => write!(
                 f,
                 ":{} 252 {} {} :IRC Operators online",
-                host, nick, operators
+                server_host, nick, operators
             ),
             Reply::LuserUnknown {
-                host,
+                server_host,
                 nick,
                 unknown,
             } => write!(
                 f,
                 ":{} 253 {} {} :unknown connection(s)",
-                host, nick, unknown
+                server_host, nick, unknown
             ),
             Reply::LuserChannels {
-                host,
+                server_host,
                 nick,
                 channels,
-            } => write!(f, ":{} 254 {} {} :channels formed", host, nick, channels),
+            } => write!(f, ":{} 254 {} {} :channels formed", server_host, nick, channels),
             Reply::LuserMe {
-                host,
+                server_host,
                 nick,
                 clients,
                 servers,
             } => write!(
                 f,
                 ":{} 255 {} :I have {} clients and {} servers",
-                host, nick, clients, servers
+                server_host, nick, clients, servers
             ),
             Reply::LocalUsers {
-                host,
+                server_host,
                 nick,
                 current,
                 max,
@@ -273,11 +276,11 @@ impl Display for Reply {
                 write!(
                     f,
                     ":{} 265 {} {} {} :Current local users {}, max {}",
-                    host, nick, current, max, current, max
+                    server_host, nick, current, max, current, max
                 )
             }
             Reply::GlobalUsers {
-                host,
+                server_host,
                 nick,
                 current,
                 max,
@@ -285,18 +288,18 @@ impl Display for Reply {
                 write!(
                     f,
                     ":{} 266 {} {} {} :Current global users {}, max {}",
-                    host, nick, current, max, current, max
+                    server_host, nick, current, max, current, max
                 )
             }
             Reply::EndOfWho {
-                host,
+                server_host,
                 nick,
                 channel,
-            } => write!(f, ":{} 315 {} {} :End of /WHO list", host, nick, channel),
-            Reply::ListEnd { host } => write!(f, ":{} 323 :End of /LIST", host),
+            } => write!(f, ":{} 315 {} {} :End of /WHO list", server_host, nick, channel),
+            Reply::ListEnd { server_host } => write!(f, ":{} 323 :End of /LIST", server_host),
             // this may be duplicate of Mode?
             Reply::ChannelModeIs {
-                host,
+                server_host,
                 nick,
                 channel,
                 mode_string,
@@ -305,31 +308,31 @@ impl Display for Reply {
                 write!(
                     f,
                     ":{} 324 {} {} {} {}",
-                    host, nick, channel, mode_string, mode_arguments
+                    server_host, nick, channel, mode_string, mode_arguments
                 )
             }
             Reply::CreationTime {
-                host,
+                server_host,
                 nick,
                 channel,
                 created_at,
-            } => write!(f, ":{} 329 {} {} {}", host, nick, channel, created_at),
+            } => write!(f, ":{} 329 {} {} {}", server_host, nick, channel, created_at),
             Reply::Topic {
-                host,
+                server_host,
                 nick,
                 channel,
                 topic,
-            } => write!(f, ":{} 332 {} {} :{}", host, nick, channel, topic),
+            } => write!(f, ":{} 332 {} {} :{}", server_host, nick, channel, topic),
             // TODO print set_at as UNIX time??
             Reply::TopicWhoTime {
-                host,
+                server_host,
                 channel,
                 nick,
                 set_at,
-            } => write!(f, ":{} 333 {} {} {}", host, nick, channel, set_at),
+            } => write!(f, ":{} 333 {} {} {}", server_host, nick, channel, set_at),
             // TODO remove hard-coding
             Reply::Who {
-                host,
+                server_host,
                 nick,
                 channel,
                 other_nick,
@@ -338,42 +341,60 @@ impl Display for Reply {
                 write!(
                     f,
                     ":{} 352 {} {} {} {} {} {} H@ :0 realname",
-                    host, nick, channel, other_nick, client, host, nick
+                    server_host, nick, channel, other_nick, client, server_host, nick
                 )
             }
             //RES -> :<source> 353 nick = #channel :listofusers with @
             Reply::Nam {
-                host,
+                server_host,
                 channel,
                 nick,
-            } => write!(f, ":{} 353 {} = {} :@{}", host, nick, channel, nick),
+            } => write!(f, ":{} 353 {} = {} :@{}", server_host, nick, channel, nick),
             Reply::EndOfNames {
-                host,
+                server_host,
                 nick,
                 channel,
-            } => write!(f, ":{} 366 {} {} :End of /NAMES list", host, nick, channel),
-            Reply::Motd { host, nick, line } => write!(f, ":{} 372 {} :- {}", host, nick, line),
-            Reply::MotdStart { host, nick } => {
-                write!(f, ":{} 375 {} :- {} Message of the Day -", host, nick, host)
+            } => write!(f, ":{} 366 {} {} :End of /NAMES list", server_host, nick, channel),
+            Reply::Motd { server_host, nick, line } => write!(f, ":{} 372 {} :- {}", server_host, nick, line),
+            Reply::MotdStart { server_host, nick } => {
+                write!(f, ":{} 375 {} :- {} Message of the Day -", server_host, nick, server_host)
             }
-            Reply::EndOfMotd { host, nick } => {
-                write!(f, ":{} 376 {} :End of /MOTD command.", host, nick)
+            Reply::EndOfMotd { server_host, nick } => {
+                write!(f, ":{} 376 {} :End of /MOTD command.", server_host, nick)
             }
-            Reply::Ping { host } => write!(f, ":{} PING", host),
-            Reply::Pong { host, token } => write!(f, ":{} PONG {} :{}", host, host, token),
+            Reply::Ping { server_host } => write!(f, ":{} PING", server_host),
+            Reply::Pong { server_host, token } => write!(f, ":{} PONG {} :{}", server_host, server_host, token),
             // this is sent to all users on the channel maybe should not be in this file?
             Reply::Join { client, channel } => write!(f, ":{} JOIN :{}", client, channel),
             // this one is not numeric not sure where to put it..
             Reply::Mode {
-                host,
+                server_host,
                 channel,
                 mode_string,
-            } => write!(f, ":{} MODE {} {}", host, channel, mode_string),
+            } => write!(f, ":{} MODE {} {}", server_host, channel, mode_string),
             Reply::PrivMsg {
-                client,
+                client_host,
+                nick,
+                user,
                 channel,
                 message,
-            } => write!(f, ":{} PRIVMSG {} :{}", client, channel, message),
+            } => {
+                // TODO this isnt strictly quite right
+                let mut prefix = format!("");
+                if let Some(n) = nick {
+                    prefix.push_str(&format!(":{}", &n.to_string()));
+
+                    if let Some(u) = user {
+                        prefix.push_str(&format!("!{}", u))
+                    }
+    
+                    if let Some(ch) = client_host {
+                        prefix.push_str(&format!("@{}", &ch.to_string()))
+                    }
+                }
+
+                write!(f, "{} PRIVMSG {} :{}", prefix, channel, message)
+            }
         }
     }
 }
@@ -381,7 +402,7 @@ impl Display for Reply {
 #[test]
 fn welcome_prints_correctly() {
     let reply = Reply::Welcome {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
     };
     let actual = reply.to_string();
@@ -392,7 +413,7 @@ fn welcome_prints_correctly() {
 #[test]
 fn yourhost_prints_correctly() {
     let reply = Reply::YourHost {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         version: "0.0.1".to_string(),
     };
@@ -405,7 +426,7 @@ fn yourhost_prints_correctly() {
 fn created_prints_correctly() {
     let now = Utc::now();
     let reply = Reply::Created {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         created_at: now.clone(),
     };
@@ -417,7 +438,7 @@ fn created_prints_correctly() {
 #[test]
 fn myinfo_prints_correctly() {
     let reply = Reply::MyInfo {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         version: "0.0.1".to_string(),
         user_modes: "r".to_string(),
@@ -431,7 +452,7 @@ fn myinfo_prints_correctly() {
 #[test]
 fn support_prints_correctly() {
     let reply = Reply::Support {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         channel_len: 100,
     };
@@ -443,7 +464,7 @@ fn support_prints_correctly() {
 #[test]
 fn luserclient_prints_correctly() {
     let reply = Reply::LuserClient {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         visible_users: 100,
         invisible_users: 20,
@@ -457,7 +478,7 @@ fn luserclient_prints_correctly() {
 #[test]
 fn luserop_prints_correctly() {
     let reply = Reply::LuserOp {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         operators: 1337,
     };
@@ -469,7 +490,7 @@ fn luserop_prints_correctly() {
 #[test]
 fn luserunknown_prints_correctly() {
     let reply = Reply::LuserUnknown {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         unknown: 7,
     };
@@ -481,7 +502,7 @@ fn luserunknown_prints_correctly() {
 #[test]
 fn luserchannels_prints_correctly() {
     let reply = Reply::LuserChannels {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         channels: 9999,
     };
@@ -493,7 +514,7 @@ fn luserchannels_prints_correctly() {
 #[test]
 fn luserme_prints_correctly() {
     let reply = Reply::LuserMe {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         clients: 900,
         servers: 1,
@@ -506,7 +527,7 @@ fn luserme_prints_correctly() {
 #[test]
 fn localusers_prints_correctly() {
     let reply = Reply::LocalUsers {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         current: 845,
         max: 1000,
@@ -519,7 +540,7 @@ fn localusers_prints_correctly() {
 #[test]
 fn globalusers_prints_correctly() {
     let reply = Reply::GlobalUsers {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         current: 9823,
         max: 23455,
@@ -532,7 +553,7 @@ fn globalusers_prints_correctly() {
 #[test]
 fn statsdline_prints_correctly() {
     let reply = Reply::StatsDLine {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         connections: 9998,
         clients: 9000,
@@ -546,7 +567,7 @@ fn statsdline_prints_correctly() {
 #[test]
 fn motdstart_prints_correctly() {
     let reply = Reply::MotdStart {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
     };
     let actual = reply.to_string();
@@ -557,7 +578,7 @@ fn motdstart_prints_correctly() {
 #[test]
 fn endofmotd_prints_correctly() {
     let reply = Reply::EndOfMotd {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
     };
     let actual = reply.to_string();
@@ -568,7 +589,7 @@ fn endofmotd_prints_correctly() {
 #[test]
 fn motd_prints_correctly() {
     let reply = Reply::Motd {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         line: "Foobar".to_string(),
     };
@@ -580,7 +601,7 @@ fn motd_prints_correctly() {
 #[test]
 fn pong_prints_correctly() {
     let reply = Reply::Pong {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         token: "LAG1238948394".to_string(),
     };
     let actual = reply.to_string();
@@ -591,7 +612,7 @@ fn pong_prints_correctly() {
 #[test]
 fn listend_prints_correctly() {
     let reply = Reply::ListEnd {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
     };
     let actual = reply.to_string();
     let expected = format!(":localhost 323 :End of /LIST");
@@ -601,7 +622,7 @@ fn listend_prints_correctly() {
 #[test]
 fn endofnames_prints_correctly() {
     let reply = Reply::EndOfNames {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         channel: "#foobar".to_string(),
     };
@@ -613,7 +634,7 @@ fn endofnames_prints_correctly() {
 #[test]
 fn endofwho_prints_correctly() {
     let reply = Reply::EndOfWho {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         channel: "#foobar".to_string(),
     };
@@ -625,7 +646,7 @@ fn endofwho_prints_correctly() {
 #[test]
 fn topic_prints_correctly() {
     let reply = Reply::Topic {
-        host: "localhost".to_string(),
+        server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
         channel: "#foobar".to_string(),
         topic: "hELLO WORLD".to_string(),

@@ -22,7 +22,7 @@ pub fn run_server(
     receiver_channel: Receiver<ClientToServerMessage>,
     connections: Arc<RwLock<HashMap<Uuid, ConnectionContext>>>,
 ) -> Result<()> {
-    let host = context.host.clone();
+    let server_host = context.server_host.clone();
     let empty_str = &String::from("");
     let mut srv_channels: HashMap<String, ChannelContext> = HashMap::new();
 
@@ -66,90 +66,90 @@ pub fn run_server(
                         &ctx_sender,
                         vec![
                             Reply::Welcome {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                             },
                             Reply::YourHost {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 version: ctx_version.clone(),
                             },
                             Reply::Created {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 created_at: *ctx_created_at,
                             },
                             Reply::MyInfo {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 version: ctx_version.clone(),
                                 user_modes: "r".to_string(),
                                 channel_modes: "i".to_string(),
                             },
                             Reply::Support {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 channel_len: 32,
                             },
                             Reply::LuserClient {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 visible_users: 100,
                                 invisible_users: 20,
                                 servers: 1,
                             },
                             Reply::LuserOp {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 operators: 1337,
                             },
                             Reply::LuserUnknown {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 unknown: 7,
                             },
                             Reply::LuserChannels {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 channels: 9999,
                             },
                             Reply::LuserMe {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 clients: 900,
                                 servers: 1,
                             },
                             Reply::LocalUsers {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 current: 845,
                                 max: 1000,
                             },
                             Reply::GlobalUsers {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 current: 9832,
                                 max: 23455,
                             },
                             Reply::StatsDLine {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 connections: 9998,
                                 clients: 9000,
                                 received: 99999,
                             },
                             Reply::MotdStart {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                             },
                             // TODO proper configurable MOTD
                             Reply::Motd {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                                 line: "Foobar".to_string(),
                             },
                             Reply::EndOfMotd {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: nick.clone(),
                             },
                         ],
@@ -190,15 +190,21 @@ pub fn run_server(
                         let now = Utc::now();
 
                         for channel in channels {
-                            if !srv_channels.contains_key(channel) {
-                                srv_channels.insert(
-                                    channel.clone(),
-                                    // TODO this probably won't be right eventually
-                                    // if there needs to be persisted channel ownership?
-                                    ChannelContext {
-                                        members: vec![received.connection_uuid],
-                                    },
-                                );
+
+                            match srv_channels.get_mut(channel) {
+                                Some(c) => {
+                                    c.members.push(received.connection_uuid)
+                                },
+                                None => {
+                                    srv_channels.insert(
+                                        channel.clone(),
+                                        // TODO this probably won't be right eventually
+                                        // if there needs to be persisted channel ownership?
+                                        ChannelContext {
+                                            members: vec![received.connection_uuid],
+                                        },
+                                    );
+                                }
                             }
 
                             send_replies(
@@ -211,19 +217,19 @@ pub fn run_server(
                                     // TODO have Nick available here
                                     // TODO persist the channel metadata
                                     Reply::Topic {
-                                        host: host.clone(),
+                                        server_host: server_host.clone(),
                                         nick: ctx_nick.clone(),
                                         channel: channel.clone(),
                                         topic: "foobar topic".to_string(),
                                     },
                                     Reply::TopicWhoTime {
-                                        host: host.clone(),
+                                        server_host: server_host.clone(),
                                         channel: channel.clone(),
                                         nick: ctx_nick.clone(),
                                         set_at: now,
                                     },
                                     Reply::Nam {
-                                        host: host.clone(),
+                                        server_host: server_host.clone(),
                                         channel: channel.clone(),
                                         nick: ctx_nick.clone(),
                                     },
@@ -238,19 +244,19 @@ pub fn run_server(
                             &ctx_sender,
                             vec![
                                 Reply::Mode {
-                                    host: host.clone(),
+                                    server_host: server_host.clone(),
                                     channel: channel.clone(),
                                     mode_string: "+tn".to_string(),
                                 },
                                 Reply::ChannelModeIs {
-                                    host: host.clone(),
+                                    server_host: server_host.clone(),
                                     nick: ctx_nick.clone(),
                                     channel: channel.clone(),
                                     mode_string: "+mtn1".to_string(),
                                     mode_arguments: "100".to_string(),
                                 },
                                 Reply::CreationTime {
-                                    host: host.clone(),
+                                    server_host: server_host.clone(),
                                     nick: ctx_nick.clone(),
                                     channel: channel.clone(),
                                     created_at: now,
@@ -262,20 +268,28 @@ pub fn run_server(
                         &ctx_sender,
                         vec![
                             Reply::Who {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 channel: channel.clone(),
                                 nick: ctx_nick.clone(),
                                 other_nick: "~vince".to_string(),
                                 client: "localhost".to_string(),
                             },
                             Reply::EndOfWho {
-                                host: host.clone(),
+                                server_host: server_host.clone(),
                                 nick: ctx_nick.clone(),
                                 channel: channel.clone(),
                             },
                         ],
                     ),
                     ClientToServerCommand::PrivMsg { channel, message } => {
+                        let sender_member = match conn_read.get(&received.connection_uuid) {
+                            Some(conn) => conn,
+                            None => {
+                                println!("Unable to find sender member {} in connections map", &received.connection_uuid);
+                                continue;
+                            }
+                        };
+
                         let channel_ctx = match srv_channels.get(channel) {
                             Some(c) => c,
                             None => {
@@ -287,6 +301,7 @@ pub fn run_server(
                             }
                         };
 
+                        println!("Found {} channel members connected to {}", &channel_ctx.members.len(), channel);
                         for member in &channel_ctx.members {
                             let connected_member = match conn_read.get(member) {
                                 Some(conn) => conn,
@@ -295,6 +310,8 @@ pub fn run_server(
                                     continue;
                                 }
                             };
+
+                            println!("FOUND {}", &connected_member.nick.as_ref().unwrap());
 
                             let lock = &connected_member.client_sender_channel.lock();
                             let sender = match lock {
@@ -305,10 +322,13 @@ pub fn run_server(
                                 }
                             };
 
+                            
                             send_replies(
                                 sender,
                                 vec![Reply::PrivMsg {
-                                    client: host.clone(),
+                                    nick: sender_member.nick.clone(),
+                                    user: sender_member.user.clone(),
+                                    client_host: sender_member.client_host.clone(),
                                     channel: channel.clone(),
                                     message: message.clone(),
                                 }],

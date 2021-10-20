@@ -25,7 +25,7 @@ pub fn run_listener(
     let mut reader = io::BufReader::with_capacity(512, stream);
     let mut last_pong = Instant::now();
     let mut waiting_for_pong = false;
-    let host = &context.host;
+    let server_host = &context.server_host;
 
     loop {
         if waiting_for_pong && last_pong.elapsed().as_secs() > context.ping_frequency.as_secs() + 5
@@ -41,7 +41,7 @@ pub fn run_listener(
             println!("Sending ping");
 
             waiting_for_pong = true;
-            let ping = format!("{}\r\n", Reply::Ping { host: host.clone() }.to_string());
+            let ping = format!("{}\r\n", Reply::Ping { server_host: server_host.clone() }.to_string());
             write_handle.write_all(ping.as_bytes())?;
             write_handle.flush()?;
         }
@@ -71,7 +71,7 @@ pub fn run_listener(
                     let pong = format!(
                         "{}\r\n",
                         Reply::Pong {
-                            host: host.clone(),
+                            server_host: server_host.clone(),
                             token: token.clone()
                         }
                         .to_string()

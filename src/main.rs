@@ -9,6 +9,7 @@ mod server;
 use chrono::{DateTime, Utc};
 use replies::Reply;
 use std::io;
+use std::net::SocketAddr;
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use std::{
@@ -21,17 +22,17 @@ use std::{
 use uuid::Uuid;
 
 fn main() -> io::Result<()> {
-    let host = "localhost".to_string();
+    let server_host = "localhost".to_string();
     let context = ServerContext {
         start_time: Utc::now(),
-        host: host.clone(),
+        server_host: server_host.clone(),
         version: "0.0.1".to_string(),
-        ping_frequency: Duration::from_secs(10),
+        ping_frequency: Duration::from_secs(60),
     };
 
-    println!("Starting server on {}:6667", host);
+    println!("Starting server on {}:6667", server_host);
 
-    let listener = TcpListener::bind(format!("{}:6667", host))?;
+    let listener = TcpListener::bind(format!("{}:6667", server_host))?;
     let mut listener_handles = vec![];
     let mut sender_handles = vec![];
 
@@ -64,6 +65,8 @@ fn main() -> io::Result<()> {
                     client_sender_channel: Mutex::new(client_sender_channel),
                     nick: None,
                     client: None,
+                    user: None,
+                    client_host: stream.peer_addr().ok()
                 };
 
                 let mut writeable_map = match connections.write() {
@@ -74,7 +77,7 @@ fn main() -> io::Result<()> {
                     }
                 };
                 writeable_map.insert(connection_uuid, context);
-
+                println!("connections map now has {} entries", writeable_map.len());
                 let mut write_handle = stream.try_clone()?;
                 sender_handles.push(thread::spawn(move || {
                     if let Err(e) =
@@ -131,7 +134,7 @@ fn main() -> io::Result<()> {
 #[derive(Clone)]
 pub struct ServerContext {
     pub start_time: DateTime<Utc>,
-    pub host: String,
+    pub server_host: String,
     pub version: String,
     pub ping_frequency: Duration,
 }
@@ -139,6 +142,9 @@ pub struct ServerContext {
 pub struct ConnectionContext {
     pub uuid: Uuid,
     pub client_sender_channel: Mutex<Sender<Reply>>,
+    // TODO remove this?
     pub client: Option<String>,
     pub nick: Option<String>,
+    pub user: Option<String>,
+    pub client_host: Option<SocketAddr>
 }
