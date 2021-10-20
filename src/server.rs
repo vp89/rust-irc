@@ -1,7 +1,6 @@
 use chrono::Utc;
 use std::{
     collections::HashMap,
-    io::{Error, ErrorKind},
     sync::{
         mpsc::{Receiver, Sender},
         Arc, RwLock,
@@ -51,7 +50,13 @@ pub fn run_server(
 
                 let ctx_version = &context.version;
                 let ctx_created_at = &context.start_time;
-                let ctx_sender = writable_ctx.client_sender_channel.lock().unwrap().clone();
+                let ctx_sender = match writable_ctx.client_sender_channel.lock() {
+                    Ok(c) => c.clone(),
+                    Err(e) => {
+                        println!("Error when trying to lock on client sender channel, therefore must skip handling this message {:?}", e);
+                        continue;
+                    }
+                };
 
                 if let ClientToServerCommand::Nick { nick } = &received.command {
                     writable_ctx.nick = Some(nick.to_string());
@@ -153,11 +158,32 @@ pub fn run_server(
             }
             // Everything else is read-only
             _ => {
-                let conn_read = connections.read().unwrap();
-                let conn_ctx = conn_read.get(&received.connection_uuid).unwrap();
+                let conn_read = match connections.read() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("Error acquiring read lock on shared connections map, must skip handling this message {:?}", e);
+                        continue;
+                    }
+                };
+
+                let conn_ctx = match conn_read.get(&received.connection_uuid) {
+                    Some(c) => c,
+                    None => {
+                        println!("Connection context not found for UUID {}", &received.connection_uuid);
+                        continue;
+                    }
+                };
+
                 let ctx_client = conn_ctx.client.as_ref().unwrap_or(empty_str);
                 let ctx_nick = conn_ctx.nick.as_ref().unwrap_or(empty_str);
-                let ctx_sender = conn_ctx.client_sender_channel.lock().unwrap().clone();
+
+                let ctx_sender = match conn_ctx.client_sender_channel.lock() {
+                    Ok(c) => c.clone(),
+                    Err(e) => {
+                        println!("Error when trying to lock on client sender channel, therefore must skip handling this message {:?}", e);
+                        continue;
+                    }
+                };
 
                 match &received.command {
                     ClientToServerCommand::Join { channels } => {
@@ -269,13 +295,18 @@ pub fn run_server(
                                     continue;
                                 }
                             };
+
+                            let lock = &connected_member.client_sender_channel.lock();
+                            let sender = match lock {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    println!("Unable to lock sender channel for member {} {:?}", member, e);
+                                    continue;
+                                }
+                            };
+
                             send_replies(
-                                // TODO get rid of unwrap
-                                &connected_member
-                                    .client_sender_channel
-                                    .lock()
-                                    .unwrap()
-                                    .clone(),
+                                sender,
                                 vec![Reply::PrivMsg {
                                     client: host.clone(),
                                     channel: channel.clone(),
