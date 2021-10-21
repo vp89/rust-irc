@@ -18,11 +18,11 @@ use crate::error::Error::ClientToServerChannelFailedToReceive;
 use crate::result::Result;
 
 pub fn run_server(
-    context: &ServerContext,
+    server_context: &ServerContext,
     receiver_channel: Receiver<ClientToServerMessage>,
     connections: Arc<RwLock<HashMap<Uuid, ConnectionContext>>>,
 ) -> Result<()> {
-    let server_host = context.server_host.clone();
+    let server_host = server_context.server_host.clone();
     let empty_str = &String::from("");
     let mut srv_channels: HashMap<String, ChannelContext> = HashMap::new();
 
@@ -39,7 +39,7 @@ pub fn run_server(
             }
         };
 
-        let conn_ctx = match conn_read.get(&received.connection_uuid) {
+        let conn_context = match conn_read.get(&received.connection_uuid) {
             Some(c) => c,
             None => {
                 println!(
@@ -50,10 +50,10 @@ pub fn run_server(
             }
         };
 
-        let ctx_client = conn_ctx.client.as_ref().unwrap_or(empty_str);
-        let ctx_nick = conn_ctx.nick.as_ref().unwrap_or(empty_str);
+        let ctx_client = conn_context.client.as_ref().unwrap_or(empty_str);
+        let ctx_nick = conn_context.nick.as_ref().unwrap_or(empty_str);
 
-        let ctx_sender = match conn_ctx.client_sender_channel.lock() {
+        let ctx_sender = match conn_context.client_sender_channel.lock() {
             Ok(c) => c.clone(),
             Err(e) => {
                 println!("Error when trying to lock on client sender channel, therefore must skip handling this message {:?}", e);
@@ -76,7 +76,7 @@ pub fn run_server(
                     }
                 };
 
-                let writable_ctx = match conn_write.get_mut(&received.connection_uuid) {
+                let conn_context = match conn_write.get_mut(&received.connection_uuid) {
                     Some(ctx) => ctx,
                     None => {
                         println!("Received a command for an unexpected connection UUID, client worker should be properly initialized before reading from the TcpStream");
@@ -84,9 +84,9 @@ pub fn run_server(
                     }
                 };
 
-                let ctx_version = &context.version;
-                let ctx_created_at = &context.start_time;
-                let ctx_sender = match writable_ctx.client_sender_channel.lock() {
+                let ctx_version = &server_context.version;
+                let ctx_created_at = &server_context.start_time;
+                let ctx_sender = match conn_context.client_sender_channel.lock() {
                     Ok(c) => c.clone(),
                     Err(e) => {
                         println!("Error when trying to lock on client sender channel, therefore must skip handling this message {:?}", e);
@@ -95,8 +95,8 @@ pub fn run_server(
                 };
 
                 if let ClientToServerCommand::Nick { nick } = &received.command {
-                    writable_ctx.nick = Some(nick.to_string());
-                    writable_ctx.client = Some(format!("{}!~{}@localhost", nick, nick));
+                    conn_context.nick = Some(nick.to_string());
+                    conn_context.client = Some(format!("{}!~{}@localhost", nick, nick));
 
                     send_replies(
                         &ctx_sender,
