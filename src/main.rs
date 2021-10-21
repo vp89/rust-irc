@@ -5,6 +5,7 @@ mod message_parsing;
 mod replies;
 mod result;
 mod server;
+mod channels;
 
 use chrono::{DateTime, Utc};
 use replies::Reply;
@@ -45,7 +46,7 @@ fn main() -> io::Result<()> {
     let server_connections = connections.clone();
     let server_context = context.clone();
     let server_handle = thread::spawn(move || {
-        if let Err(e) = server::run_server(&server_context, receiver_channel, server_connections) {
+        if let Err(e) = server::run_server(&server_context, &receiver_channel, server_connections) {
             println!("Error returned from server worker {:?}", e);
         }
     });

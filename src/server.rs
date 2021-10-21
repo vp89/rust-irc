@@ -1,25 +1,14 @@
 use chrono::Utc;
-use std::{
-    collections::HashMap,
-    sync::{
-        mpsc::{Receiver, Sender},
-        Arc, RwLock,
-    },
-};
+use std::{cell::RefCell, collections::{HashMap, VecDeque}, sync::{Arc, RwLock, mpsc::{self, Receiver, Sender}}};
 use uuid::Uuid;
 
-use crate::{
-    message_parsing::{ClientToServerCommand, ClientToServerMessage},
-    replies::Reply,
-    ConnectionContext, ServerContext,
-};
+use crate::{ConnectionContext, ServerContext, channels::{FakeChannelReceiver, ReceiverWrapper}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
 
-use crate::error::Error::ClientToServerChannelFailedToReceive;
 use crate::result::Result;
 
 pub fn run_server(
     server_context: &ServerContext,
-    receiver_channel: Receiver<ClientToServerMessage>,
+    receiver_channel: &dyn ReceiverWrapper<ClientToServerMessage>,
     connections: Arc<RwLock<HashMap<Uuid, ConnectionContext>>>,
 ) -> Result<()> {
     let server_host = server_context.server_host.clone();
@@ -28,8 +17,7 @@ pub fn run_server(
 
     loop {
         let received = receiver_channel
-            .recv()
-            .map_err(ClientToServerChannelFailedToReceive)?;
+            .receive()?;
 
         let conn_read = match connections.read() {
             Ok(c) => c,
@@ -364,4 +352,22 @@ fn send_replies(sender: &Sender<Reply>, replies: Vec<Reply>) {
 
 struct ChannelContext {
     members: Vec<Uuid>,
+}
+
+// TODO fill this out with test logic but this skeleton should work for mocking
+#[test]
+pub fn server_test_skeleton() {
+    let messages = VecDeque::new();
+    let receiver = FakeChannelReceiver {
+        faked_messages: RefCell::new(Box::new(messages))
+    };
+    let connections = Arc::new(RwLock::new(HashMap::new()));
+    let context = ServerContext {
+        start_time: Utc::now(),
+        server_host: "localhost".to_string(),
+        version: "0.0.1".to_string(),
+        ping_frequency: std::time::Duration::from_secs(60),
+    };
+
+    run_server(&context, &receiver, connections);
 }
