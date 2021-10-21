@@ -169,7 +169,11 @@ impl Display for Reply {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Reply::Welcome { server_host, nick } => {
-                write!(f, ":{} 001 {} :Welcome to the server {}", server_host, nick, nick)
+                write!(
+                    f,
+                    ":{} 001 {} :Welcome to the server {}",
+                    server_host, nick, nick
+                )
             }
             // TODO should this show client host too?
             Reply::YourHost {
@@ -256,7 +260,11 @@ impl Display for Reply {
                 server_host,
                 nick,
                 channels,
-            } => write!(f, ":{} 254 {} {} :channels formed", server_host, nick, channels),
+            } => write!(
+                f,
+                ":{} 254 {} {} :channels formed",
+                server_host, nick, channels
+            ),
             Reply::LuserMe {
                 server_host,
                 nick,
@@ -295,7 +303,11 @@ impl Display for Reply {
                 server_host,
                 nick,
                 channel,
-            } => write!(f, ":{} 315 {} {} :End of /WHO list", server_host, nick, channel),
+            } => write!(
+                f,
+                ":{} 315 {} {} :End of /WHO list",
+                server_host, nick, channel
+            ),
             Reply::ListEnd { server_host } => write!(f, ":{} 323 :End of /LIST", server_host),
             // this may be duplicate of Mode?
             Reply::ChannelModeIs {
@@ -316,7 +328,11 @@ impl Display for Reply {
                 nick,
                 channel,
                 created_at,
-            } => write!(f, ":{} 329 {} {} {}", server_host, nick, channel, created_at),
+            } => write!(
+                f,
+                ":{} 329 {} {} {}",
+                server_host, nick, channel, created_at
+            ),
             Reply::Topic {
                 server_host,
                 nick,
@@ -354,16 +370,30 @@ impl Display for Reply {
                 server_host,
                 nick,
                 channel,
-            } => write!(f, ":{} 366 {} {} :End of /NAMES list", server_host, nick, channel),
-            Reply::Motd { server_host, nick, line } => write!(f, ":{} 372 {} :- {}", server_host, nick, line),
+            } => write!(
+                f,
+                ":{} 366 {} {} :End of /NAMES list",
+                server_host, nick, channel
+            ),
+            Reply::Motd {
+                server_host,
+                nick,
+                line,
+            } => write!(f, ":{} 372 {} :- {}", server_host, nick, line),
             Reply::MotdStart { server_host, nick } => {
-                write!(f, ":{} 375 {} :- {} Message of the Day -", server_host, nick, server_host)
+                write!(
+                    f,
+                    ":{} 375 {} :- {} Message of the Day -",
+                    server_host, nick, server_host
+                )
             }
             Reply::EndOfMotd { server_host, nick } => {
                 write!(f, ":{} 376 {} :End of /MOTD command.", server_host, nick)
             }
             Reply::Ping { server_host } => write!(f, ":{} PING", server_host),
-            Reply::Pong { server_host, token } => write!(f, ":{} PONG {} :{}", server_host, server_host, token),
+            Reply::Pong { server_host, token } => {
+                write!(f, ":{} PONG {} :{}", server_host, server_host, token)
+            }
             // this is sent to all users on the channel maybe should not be in this file?
             Reply::Join { client, channel } => write!(f, ":{} JOIN :{}", client, channel),
             // this one is not numeric not sure where to put it..
@@ -387,7 +417,7 @@ impl Display for Reply {
                     if let Some(u) = user {
                         prefix.push_str(&format!("!{}", u))
                     }
-    
+
                     if let Some(ch) = client_host {
                         prefix.push_str(&format!("@{}", &ch.to_string()))
                     }

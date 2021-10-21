@@ -1,5 +1,5 @@
-use std::fmt::Display;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::sync::mpsc::RecvError;
 
 #[derive(Debug)]

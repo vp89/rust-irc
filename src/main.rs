@@ -66,7 +66,7 @@ fn main() -> io::Result<()> {
                     nick: None,
                     client: None,
                     user: None,
-                    client_host: stream.peer_addr().ok()
+                    client_host: stream.peer_addr().ok(),
                 };
 
                 let mut writeable_map = match connections.write() {
@@ -146,5 +146,5 @@ pub struct ConnectionContext {
     pub client: Option<String>,
     pub nick: Option<String>,
     pub user: Option<String>,
-    pub client_host: Option<SocketAddr>
+    pub client_host: Option<SocketAddr>,
 }

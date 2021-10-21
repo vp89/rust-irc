@@ -2,9 +2,9 @@ use std::io::Write;
 use std::net::TcpStream;
 use std::sync::mpsc::Receiver;
 
+use crate::error::Error::ServerToClientChannelFailedToReceive;
 use crate::replies::Reply;
 use crate::result::Result;
-use crate::error::Error::ServerToClientChannelFailedToReceive;
 
 pub fn run_sender(receiver: Receiver<Reply>, write_handle: &mut TcpStream) -> Result<()> {
     loop {

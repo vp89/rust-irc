@@ -41,7 +41,13 @@ pub fn run_listener(
             println!("Sending ping");
 
             waiting_for_pong = true;
-            let ping = format!("{}\r\n", Reply::Ping { server_host: server_host.clone() }.to_string());
+            let ping = format!(
+                "{}\r\n",
+                Reply::Ping {
+                    server_host: server_host.clone()
+                }
+                .to_string()
+            );
             write_handle.write_all(ping.as_bytes())?;
             write_handle.flush()?;
         }
