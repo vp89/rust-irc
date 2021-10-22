@@ -2,7 +2,7 @@ use chrono::Utc;
 use std::{cell::RefCell, collections::{HashMap, VecDeque}, sync::{Arc, RwLock, mpsc::{self, Receiver, Sender}}};
 use uuid::Uuid;
 
-use crate::{ConnectionContext, ServerContext, channels::{FakeChannelReceiver, ReceiverWrapper}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
+use crate::{ConnectionContext, ServerContext, channels::{FakeChannelReceiver, FakeChannelSender, ReceiverWrapper}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
 
 use crate::result::Result;
 
@@ -358,9 +358,17 @@ struct ChannelContext {
 #[test]
 pub fn server_test_skeleton() {
     let messages = VecDeque::new();
+    let sent_messages = VecDeque::<ClientToServerMessage>::new();
     let receiver = FakeChannelReceiver {
-        faked_messages: RefCell::new(Box::new(messages))
+        faked_messages: RefCell::new(Box::new(messages)),
+        receive_count: RefCell::new(0)
     };
+    // create one of these for each client being tested with
+    let sender = FakeChannelSender {
+        sent_messages: RefCell::new(Box::new(sent_messages)),
+        send_count: RefCell::new(0)
+    };
+
     let connections = Arc::new(RwLock::new(HashMap::new()));
     let context = ServerContext {
         start_time: Utc::now(),
@@ -370,4 +378,6 @@ pub fn server_test_skeleton() {
     };
 
     run_server(&context, &receiver, connections);
+    // asserts would also check for send count, and sent messages
+    assert_eq!(1, receiver.receive_count.take());
 }

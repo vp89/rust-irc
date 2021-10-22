@@ -9,6 +9,7 @@ pub enum Error {
     ServerToClientChannelFailedToReceive(RecvError),
     ClientToServerChannelFailedToReceive(RecvError),
     TestErrorNoMoreMessagesInReceiver,
+    FailedToSendOnChannel
 }
 
 impl Display for Error {
@@ -38,7 +39,8 @@ impl Display for Error {
                     e
                 )
             }
-            Error::TestErrorNoMoreMessagesInReceiver => { write!(f, "") }
+            Error::TestErrorNoMoreMessagesInReceiver => { write!(f, "") },
+            Error::FailedToSendOnChannel => { write!(f, "") }
         }
     }
 }
