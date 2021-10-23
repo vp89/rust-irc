@@ -1,8 +1,8 @@
 use chrono::Utc;
-use std::{cell::RefCell, collections::{HashMap, VecDeque}, sync::{Arc, RwLock, mpsc::{self, Receiver, Sender}}};
+use std::{cell::RefCell, collections::{HashMap, VecDeque}, sync::{Arc, Mutex, RwLock, mpsc::{self, Receiver, Sender}}};
 use uuid::Uuid;
 
-use crate::{ConnectionContext, ServerContext, channels::{FakeChannelReceiver, FakeChannelSender, ReceiverWrapper}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
+use crate::{ConnectionContext, ServerContext, channels::{FakeChannelReceiver, ReceiverWrapper}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
 
 use crate::result::Result;
 
@@ -354,22 +354,38 @@ struct ChannelContext {
     members: Vec<Uuid>,
 }
 
-// TODO fill this out with test logic but this skeleton should work for mocking
 #[test]
-pub fn server_test_skeleton() {
-    let messages = VecDeque::new();
-    let sent_messages = VecDeque::<ClientToServerMessage>::new();
+pub fn server_nickcommandsent_replystormissent() {
+    // Arrange
+    let mut connections = HashMap::new();
+
+    let (sender, test_receiver) = mpsc::channel();
+    let connection_uuid = Uuid::new_v4();
+    connections.insert(connection_uuid, ConnectionContext {
+        uuid: connection_uuid,
+        client_sender_channel: Mutex::new(sender),
+        client: None,
+        nick: None,
+        user: None,
+        client_host: None,
+    });
+
+    let connections = Arc::new(RwLock::new(connections));
+
+    let mut messages = VecDeque::new();
+    messages.push_front(ClientToServerMessage {
+        source: None,
+        command: ClientToServerCommand::Nick {
+            nick: "JOE".to_string(),
+        },
+        connection_uuid,
+    });
+    
     let receiver = FakeChannelReceiver {
         faked_messages: RefCell::new(Box::new(messages)),
         receive_count: RefCell::new(0)
     };
-    // create one of these for each client being tested with
-    let sender = FakeChannelSender {
-        sent_messages: RefCell::new(Box::new(sent_messages)),
-        send_count: RefCell::new(0)
-    };
 
-    let connections = Arc::new(RwLock::new(HashMap::new()));
     let context = ServerContext {
         start_time: Utc::now(),
         server_host: "localhost".to_string(),
@@ -377,7 +393,23 @@ pub fn server_test_skeleton() {
         ping_frequency: std::time::Duration::from_secs(60),
     };
 
-    run_server(&context, &receiver, connections);
-    // asserts would also check for send count, and sent messages
-    assert_eq!(1, receiver.receive_count.take());
+    // Act
+    let assert_connections = connections.clone();
+    let result = run_server(&context, &receiver, connections);
+
+    // Assert
+    if let Ok(()) = result {
+        assert!(false)
+    }
+    assert_eq!(2, receiver.receive_count.take());
+    // try_iter is required because the sender channel is kept alive due
+    // to cloning the Arc to the connections map
+    // try_iter will yield whatever is in the receiver even
+    // though the sender hasn't hung up whereas iter would block
+    // because the sender hasn't hung up
+    assert_eq!(16, test_receiver.try_iter().count());
+
+    let dict = assert_connections.read().unwrap();
+    let conn_ctx = dict.get(&connection_uuid).unwrap();
+    assert_eq!(&Some("JOE".to_string()), &conn_ctx.nick);
 }

@@ -8,8 +8,7 @@ pub enum Error {
     MessageParsingErrorMissingParameter { param_name: String },
     ServerToClientChannelFailedToReceive(RecvError),
     ClientToServerChannelFailedToReceive(RecvError),
-    TestErrorNoMoreMessagesInReceiver,
-    FailedToSendOnChannel
+    TestErrorNoMoreMessagesInReceiver
 }
 
 impl Display for Error {
@@ -39,8 +38,7 @@ impl Display for Error {
                     e
                 )
             }
-            Error::TestErrorNoMoreMessagesInReceiver => { write!(f, "") },
-            Error::FailedToSendOnChannel => { write!(f, "") }
+            Error::TestErrorNoMoreMessagesInReceiver => { write!(f, "") }
         }
     }
 }
