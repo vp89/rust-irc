@@ -67,6 +67,7 @@ fn main() -> io::Result<()> {
                     nick: None,
                     client: None,
                     user: None,
+                    real_name: None,
                     client_host: stream.peer_addr().ok(),
                 };
 
@@ -147,5 +148,6 @@ pub struct ConnectionContext {
     pub client: Option<String>,
     pub nick: Option<String>,
     pub user: Option<String>,
+    pub real_name: Option<String>,
     pub client_host: Option<SocketAddr>,
 }

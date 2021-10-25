@@ -78,7 +78,7 @@ pub enum Reply {
     EndOfWho {
         server_host: String,
         nick: String,
-        channel: String,
+        mask: String,
     },
     ListEnd {
         server_host: String,
@@ -112,9 +112,12 @@ pub enum Reply {
     Who {
         server_host: String,
         nick: String,
-        channel: String,
-        client: String,
+        mask: String,
+        other_user: String,
+        other_host: String,
+        other_server: String,
         other_nick: String,
+        other_realname: String
     },
     Nam {
         server_host: String,
@@ -302,11 +305,11 @@ impl Display for Reply {
             Reply::EndOfWho {
                 server_host,
                 nick,
-                channel,
+                mask,
             } => write!(
                 f,
-                ":{} 315 {} {} :End of /WHO list",
-                server_host, nick, channel
+                ":{} 315 {} {} :End of /WHO list.",
+                server_host, nick, mask
             ),
             Reply::ListEnd { server_host } => write!(f, ":{} 323 :End of /LIST", server_host),
             // this may be duplicate of Mode?
@@ -350,14 +353,17 @@ impl Display for Reply {
             Reply::Who {
                 server_host,
                 nick,
-                channel,
+                mask,
+                other_user,
+                other_host,
+                other_server,
                 other_nick,
-                client,
+                other_realname
             } => {
                 write!(
                     f,
-                    ":{} 352 {} {} {} {} {} {} H@ :0 realname",
-                    server_host, nick, channel, other_nick, client, server_host, nick
+                    ":{} 352 {} {} {} {} {} {} H@ :0 {}",
+                    server_host, nick, mask, other_user, other_host, other_server, other_nick, other_realname
                 )
             }
             //RES -> :<source> 353 nick = #channel :listofusers with @
@@ -666,10 +672,10 @@ fn endofwho_prints_correctly() {
     let reply = Reply::EndOfWho {
         server_host: "localhost".to_string(),
         nick: "JIM".to_string(),
-        channel: "#foobar".to_string(),
+        mask: "#foobar".to_string(),
     };
     let actual = reply.to_string();
-    let expected = format!(":localhost 315 JIM #foobar :End of /WHO list");
+    let expected = format!(":localhost 315 JIM #foobar :End of /WHO list.");
     assert_eq!(expected, actual);
 }
 

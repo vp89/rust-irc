@@ -1,5 +1,5 @@
 use chrono::Utc;
-use std::{cell::RefCell, collections::{HashMap, VecDeque}, sync::{Arc, Mutex, RwLock, mpsc::{self, Sender}}};
+use std::{cell::RefCell, collections::{HashMap, VecDeque}, net::{Ipv4Addr, SocketAddr, SocketAddrV4}, sync::{Arc, Mutex, RwLock, mpsc::{self, Sender}}};
 use uuid::Uuid;
 
 use crate::{ConnectionContext, ServerContext, channels::{FakeChannelReceiver, ReceiverWrapper}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
@@ -256,31 +256,84 @@ pub fn run_server(
                 )
             }
             // TODO add mask
-            ClientToServerCommand::Who { .. } => {
+            /*
+                352    RPL_WHOREPLY
+                        "<channel> <user> <host> <server> <nick>
+                        ( "H" / "G" > ["*"] [ ( "@" / "+" ) ]
+                        :<hopcount> <real name>"
+
+                315    RPL_ENDOFWHO
+                        "<name> :End of WHO list"
+
+                    - The RPL_WHOREPLY and RPL_ENDOFWHO pair are used
+                    to answer a WHO message.  The RPL_WHOREPLY is only
+                    sent if there is an appropriate match to the WHO
+                    query.  If there is a list of parameters supplied
+                    with a WHO message, a RPL_ENDOFWHO MUST be sent
+                    after processing each list item with <name> being
+                    the item.
+           */
+            ClientToServerCommand::Who { mask } => {
                 /*
                 The <mask> passed to WHO is matched against users' host, server, real
                 name and nickname if the channel <mask> cannot be found.
                 */
 
-                // if there is a mask, first check that it matches a channel
-                
-                send_replies(
-                    &ctx_sender,
-                    vec![
-                        Reply::Who {
+                match mask {
+                    Some(m) => {
+                        let raw_mask = &m.value;
+
+                        // if there is a mask, first check that it matches a channel
+                        // The <mask> passed to WHO is matched against users' host, server, real
+                        // name and nickname if the channel <mask> cannot be found.
+
+                        let chan_ctx = srv_channels.get(raw_mask);
+
+                        let empty_members = vec![];
+
+                        let users = match chan_ctx {
+                            Some(c) => &c.members,
+                            None => {
+                                 // todo return all conns that match the mask
+                                 &empty_members
+                            }
+                        };
+
+                        let mut replies = vec![];
+
+                        for user in users {
+                            let other_user = conn_read.get(&user).unwrap(); // TODO remove unwrap
+
+                            let empty_ip = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 1234));
+
+                            // TODOTODOTODO
+                            replies.push(Reply::Who {
+                                server_host: server_host.clone(),
+                                nick: ctx_nick.clone(),
+                                mask: raw_mask.clone(),
+                                other_user: other_user.user.as_ref().unwrap_or(&empty_str).clone(),
+                                other_host: other_user.client_host.as_ref().unwrap_or(&empty_ip).to_string(),
+                                other_server: server_host.clone(), // multi-server not supported
+                                other_nick: other_user.nick.as_ref().unwrap_or(&empty_str).clone(),
+                                other_realname: other_user.real_name.as_ref().unwrap_or(&empty_str).clone()
+                            })
+                        }
+
+                        replies.push(Reply::EndOfWho {
                             server_host: server_host.clone(),
-                            channel: "".to_string(), // TODO?
                             nick: ctx_nick.clone(),
-                            other_nick: "~vince".to_string(),
-                            client: "localhost".to_string(),
-                        },
-                        Reply::EndOfWho {
-                            server_host: server_host.clone(),
-                            nick: ctx_nick.clone(),
-                            channel: "".to_string(), // TODO?
-                        },
-                    ],
-                )
+                            mask: raw_mask.clone(),
+                        });
+                    },
+                    None => {
+                        // TODO send error reply
+                        /*
+                        send_replies(
+
+                        )
+                        */
+                    }
+                }
             }
             ClientToServerCommand::PrivMsg { channel, message } => {
                 let sender_member = match conn_read.get(&received.connection_uuid) {
@@ -377,6 +430,7 @@ pub fn server_nickcommandsent_replystormissent() {
         client: None,
         nick: None,
         user: None,
+        real_name: None,
         client_host: None,
     });
 

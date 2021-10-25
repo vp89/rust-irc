@@ -24,9 +24,9 @@ pub enum ClientToServerCommand {
 
 // encoding via this type that only_operators can only exist if any mask is provided
 #[derive(Debug, Clone, PartialEq)]
-struct WhoMask {
-    mask: String,
-    only_operators: bool
+pub struct WhoMask {
+    pub value: String,
+    pub only_operators: bool
 }
 
 // TODO this doesnt handle NICK params
@@ -116,7 +116,7 @@ impl ClientToServerMessage {
                             Some(_) | None => false
                         };
 
-                        Some(WhoMask { mask: s.to_owned(), only_operators })
+                        Some(WhoMask { value: s.to_owned(), only_operators })
                     },
                     None => None
                 };
@@ -267,7 +267,7 @@ fn from_client_who_onlymask_returnoperatorsfalse() {
     let expected_message = ClientToServerMessage {
         source: None,
         command: ClientToServerCommand::Who {
-            mask: Some(WhoMask { mask: "#heythere".to_string(), only_operators: false }),
+            mask: Some(WhoMask { value: "#heythere".to_string(), only_operators: false }),
         },
         connection_uuid: uuid,
     };
@@ -283,7 +283,7 @@ fn from_client_who_onlyoperators_isvalid() {
     let expected_message = ClientToServerMessage {
         source: None,
         command: ClientToServerCommand::Who {
-            mask: Some(WhoMask { mask: "#heythere".to_string(), only_operators: true }),
+            mask: Some(WhoMask { value: "#heythere".to_string(), only_operators: true }),
         },
         connection_uuid: uuid,
     };
