@@ -16,10 +16,17 @@ pub enum ClientToServerCommand {
     Ping { token: String },
     Join { channels: Vec<String> },
     Mode { channel: String },
-    Who { channel: String },
+    Who { mask: Option<WhoMask> },
     PrivMsg { channel: String, message: String },
     Pong,
     Quit,
+}
+
+// encoding via this type that only_operators can only exist if any mask is provided
+#[derive(Debug, Clone, PartialEq)]
+struct WhoMask {
+    mask: String,
+    only_operators: bool
 }
 
 // TODO this doesnt handle NICK params
@@ -102,14 +109,19 @@ impl ClientToServerMessage {
                 ClientToServerCommand::Mode { channel }
             }
             "WHO" => {
-                let channel = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "channel".to_string(),
-                    }),
-                }?;
+                let mask = match words.next() {
+                    Some(s) => {
+                        let only_operators = match words.next() {
+                            Some("o") => true,
+                            Some(_) | None => false
+                        };
 
-                ClientToServerCommand::Who { channel }
+                        Some(WhoMask { mask: s.to_owned(), only_operators })
+                    },
+                    None => None
+                };
+
+                ClientToServerCommand::Who { mask }
             }
             "PONG" => ClientToServerCommand::Pong,
             "QUIT" => ClientToServerCommand::Quit,
@@ -228,6 +240,54 @@ fn from_client_join_multiplechannels_is_parsed() {
     };
 
     let raw_str = &format!("JOIN {}", expected_channels.join(","));
+    let message =
+        ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
+    assert_eq!(expected_message.command, message.command);
+}
+
+#[test]
+fn from_client_who_nomask_isvalid() {
+    let uuid = Uuid::new_v4();
+    let expected_message = ClientToServerMessage {
+        source: None,
+        command: ClientToServerCommand::Who {
+            mask: None,
+        },
+        connection_uuid: uuid,
+    };
+    let raw_str = &format!("WHO");
+    let message =
+        ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
+    assert_eq!(expected_message.command, message.command);
+}
+
+#[test]
+fn from_client_who_onlymask_returnoperatorsfalse() {
+    let uuid = Uuid::new_v4();
+    let expected_message = ClientToServerMessage {
+        source: None,
+        command: ClientToServerCommand::Who {
+            mask: Some(WhoMask { mask: "#heythere".to_string(), only_operators: false }),
+        },
+        connection_uuid: uuid,
+    };
+    let raw_str = &format!("WHO #heythere");
+    let message =
+        ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
+    assert_eq!(expected_message.command, message.command);
+}
+
+#[test]
+fn from_client_who_onlyoperators_isvalid() {
+    let uuid = Uuid::new_v4();
+    let expected_message = ClientToServerMessage {
+        source: None,
+        command: ClientToServerCommand::Who {
+            mask: Some(WhoMask { mask: "#heythere".to_string(), only_operators: true }),
+        },
+        connection_uuid: uuid,
+    };
+    let raw_str = &format!("WHO #heythere o");
     let message =
         ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
     assert_eq!(expected_message.command, message.command);

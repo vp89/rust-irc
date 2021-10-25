@@ -1,5 +1,5 @@
 use chrono::Utc;
-use std::{cell::RefCell, collections::{HashMap, VecDeque}, sync::{Arc, Mutex, RwLock, mpsc::{self, Receiver, Sender}}};
+use std::{cell::RefCell, collections::{HashMap, VecDeque}, sync::{Arc, Mutex, RwLock, mpsc::{self, Sender}}};
 use uuid::Uuid;
 
 use crate::{ConnectionContext, ServerContext, channels::{FakeChannelReceiver, ReceiverWrapper}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
@@ -255,23 +255,33 @@ pub fn run_server(
                     ],
                 )
             }
-            ClientToServerCommand::Who { channel } => send_replies(
-                &ctx_sender,
-                vec![
-                    Reply::Who {
-                        server_host: server_host.clone(),
-                        channel: channel.clone(),
-                        nick: ctx_nick.clone(),
-                        other_nick: "~vince".to_string(),
-                        client: "localhost".to_string(),
-                    },
-                    Reply::EndOfWho {
-                        server_host: server_host.clone(),
-                        nick: ctx_nick.clone(),
-                        channel: channel.clone(),
-                    },
-                ],
-            ),
+            // TODO add mask
+            ClientToServerCommand::Who { .. } => {
+                /*
+                The <mask> passed to WHO is matched against users' host, server, real
+                name and nickname if the channel <mask> cannot be found.
+                */
+
+                // if there is a mask, first check that it matches a channel
+                
+                send_replies(
+                    &ctx_sender,
+                    vec![
+                        Reply::Who {
+                            server_host: server_host.clone(),
+                            channel: "".to_string(), // TODO?
+                            nick: ctx_nick.clone(),
+                            other_nick: "~vince".to_string(),
+                            client: "localhost".to_string(),
+                        },
+                        Reply::EndOfWho {
+                            server_host: server_host.clone(),
+                            nick: ctx_nick.clone(),
+                            channel: "".to_string(), // TODO?
+                        },
+                    ],
+                )
+            }
             ClientToServerCommand::PrivMsg { channel, message } => {
                 let sender_member = match conn_read.get(&received.connection_uuid) {
                     Some(conn) => conn,
