@@ -18,6 +18,7 @@ pub enum ClientToServerCommand {
     Mode { channel: String },
     Who { mask: Option<WhoMask> },
     PrivMsg { channel: String, message: String },
+    User { user: String, mode: String, realname: String },
     Pong,
     Quit,
 }
@@ -122,6 +123,33 @@ impl ClientToServerMessage {
                 };
 
                 ClientToServerCommand::Who { mask }
+            }
+            "USER" => {
+                let user = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "user".to_string(),
+                    }),
+                }?;
+
+                let mode = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "mode".to_string(),
+                    }),
+                }?;
+                
+                // skip the "unused" argument
+                words.next();
+
+                let realname = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "realname".to_string(),
+                    }),
+                }?;
+
+                ClientToServerCommand::User { user, mode, realname }
             }
             "PONG" => ClientToServerCommand::Pong,
             "QUIT" => ClientToServerCommand::Quit,

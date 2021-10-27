@@ -121,8 +121,9 @@ pub enum Reply {
     },
     Nam {
         server_host: String,
-        channel: String,
         nick: String,
+        channel: String,
+        channel_users: Vec<String>,
     },
     EndOfNames {
         server_host: String,
@@ -153,11 +154,6 @@ pub enum Reply {
     Join {
         client: String,
         channel: String,
-    },
-    Mode {
-        server_host: String,
-        channel: String,
-        mode_string: String,
     },
     PrivMsg {
         client_host: Option<SocketAddr>,
@@ -369,16 +365,31 @@ impl Display for Reply {
             //RES -> :<source> 353 nick = #channel :listofusers with @
             Reply::Nam {
                 server_host,
-                channel,
                 nick,
-            } => write!(f, ":{} 353 {} = {} :@{}", server_host, nick, channel, nick),
+                channel,
+                channel_users,
+            } => {
+                let mut printed_users = String::new();
+                let mut first = true;
+
+                for user in channel_users {
+                    if first {
+                        first = false;
+                        printed_users.push_str(user);
+                    } else {
+                        printed_users.push_str(&format!(" {}", user));
+                    }
+                }
+
+                write!(f, ":{} 353 {} = {} {}", server_host, nick, channel, printed_users)
+            },
             Reply::EndOfNames {
                 server_host,
                 nick,
                 channel,
             } => write!(
                 f,
-                ":{} 366 {} {} :End of /NAMES list",
+                ":{} 366 {} {} :End of /NAMES list.",
                 server_host, nick, channel
             ),
             Reply::Motd {
@@ -402,12 +413,6 @@ impl Display for Reply {
             }
             // this is sent to all users on the channel maybe should not be in this file?
             Reply::Join { client, channel } => write!(f, ":{} JOIN :{}", client, channel),
-            // this one is not numeric not sure where to put it..
-            Reply::Mode {
-                server_host,
-                channel,
-                mode_string,
-            } => write!(f, ":{} MODE {} {}", server_host, channel, mode_string),
             Reply::PrivMsg {
                 client_host,
                 nick,
@@ -663,7 +668,7 @@ fn endofnames_prints_correctly() {
         channel: "#foobar".to_string(),
     };
     let actual = reply.to_string();
-    let expected = format!(":localhost 366 JIM #foobar :End of /NAMES list");
+    let expected = format!(":localhost 366 JIM #foobar :End of /NAMES list.");
     assert_eq!(expected, actual);
 }
 

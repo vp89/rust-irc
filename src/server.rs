@@ -51,7 +51,29 @@ pub fn run_server(
 
         match &received.command {
             // These require modifying the connection context
-            ClientToServerCommand::Nick { .. } => {
+            ClientToServerCommand::User { user, mode, realname } => {
+                drop(conn_read);
+
+                let mut conn_write = match connections.write() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("RwLock on connections map is poisoned {:?}", e);
+                        continue;
+                    }
+                };
+
+                let conn_context = match conn_write.get_mut(&received.connection_uuid) {
+                    Some(ctx) => ctx,
+                    None => {
+                        println!("Received a command for an unexpected connection UUID, client worker should be properly initialized before reading from the TcpStream");
+                        continue;
+                    }
+                };
+
+                conn_context.user = Some(user.to_string());
+                conn_context.real_name = Some(realname.to_string());
+            }
+            ClientToServerCommand::Nick { nick } => {
                 // drop the read lock before taking a write-lock, this needs to be done for any command
                 // that needs write access to the connection context
                 drop(conn_read);
@@ -82,103 +104,101 @@ pub fn run_server(
                     }
                 };
 
-                if let ClientToServerCommand::Nick { nick } = &received.command {
-                    conn_context.nick = Some(nick.to_string());
-                    conn_context.client = Some(format!("{}!~{}@localhost", nick, nick));
+                conn_context.nick = Some(nick.to_string());
+                conn_context.client = Some(format!("{}!~{}@localhost", nick, nick));
 
-                    send_replies(
-                        &ctx_sender,
-                        vec![
-                            Reply::Welcome {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                            },
-                            Reply::YourHost {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                version: ctx_version.clone(),
-                            },
-                            Reply::Created {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                created_at: *ctx_created_at,
-                            },
-                            Reply::MyInfo {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                version: ctx_version.clone(),
-                                user_modes: "r".to_string(),
-                                channel_modes: "i".to_string(),
-                            },
-                            Reply::Support {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                channel_len: 32,
-                            },
-                            Reply::LuserClient {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                visible_users: 100,
-                                invisible_users: 20,
-                                servers: 1,
-                            },
-                            Reply::LuserOp {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                operators: 1337,
-                            },
-                            Reply::LuserUnknown {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                unknown: 7,
-                            },
-                            Reply::LuserChannels {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                channels: 9999,
-                            },
-                            Reply::LuserMe {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                clients: 900,
-                                servers: 1,
-                            },
-                            Reply::LocalUsers {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                current: 845,
-                                max: 1000,
-                            },
-                            Reply::GlobalUsers {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                current: 9832,
-                                max: 23455,
-                            },
-                            Reply::StatsDLine {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                connections: 9998,
-                                clients: 9000,
-                                received: 99999,
-                            },
-                            Reply::MotdStart {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                            },
-                            // TODO proper configurable MOTD
-                            Reply::Motd {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                                line: "Foobar".to_string(),
-                            },
-                            Reply::EndOfMotd {
-                                server_host: server_host.clone(),
-                                nick: nick.clone(),
-                            },
-                        ],
-                    )
-                }
+                send_replies(
+                    &ctx_sender,
+                    vec![
+                        Reply::Welcome {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                        },
+                        Reply::YourHost {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            version: ctx_version.clone(),
+                        },
+                        Reply::Created {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            created_at: *ctx_created_at,
+                        },
+                        Reply::MyInfo {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            version: ctx_version.clone(),
+                            user_modes: "r".to_string(),
+                            channel_modes: "i".to_string(),
+                        },
+                        Reply::Support {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            channel_len: 32,
+                        },
+                        Reply::LuserClient {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            visible_users: 100,
+                            invisible_users: 20,
+                            servers: 1,
+                        },
+                        Reply::LuserOp {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            operators: 1337,
+                        },
+                        Reply::LuserUnknown {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            unknown: 7,
+                        },
+                        Reply::LuserChannels {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            channels: 9999,
+                        },
+                        Reply::LuserMe {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            clients: 900,
+                            servers: 1,
+                        },
+                        Reply::LocalUsers {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            current: 845,
+                            max: 1000,
+                        },
+                        Reply::GlobalUsers {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            current: 9832,
+                            max: 23455,
+                        },
+                        Reply::StatsDLine {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            connections: 9998,
+                            clients: 9000,
+                            received: 99999,
+                        },
+                        Reply::MotdStart {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                        },
+                        // TODO proper configurable MOTD
+                        Reply::Motd {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                            line: "Foobar".to_string(),
+                        },
+                        Reply::EndOfMotd {
+                            server_host: server_host.clone(),
+                            nick: nick.clone(),
+                        },
+                    ],
+                )
             }
             ClientToServerCommand::Join { channels } => {
                 let now = Utc::now();
@@ -198,34 +218,74 @@ pub fn run_server(
                         }
                     }
 
-                    send_replies(
-                        &ctx_sender,
-                        vec![
-                            Reply::Join {
-                                client: ctx_client.clone(),
-                                channel: channel.clone(),
-                            },
-                            // TODO have Nick available here
-                            // TODO persist the channel metadata
-                            Reply::Topic {
-                                server_host: server_host.clone(),
-                                nick: ctx_nick.clone(),
-                                channel: channel.clone(),
-                                topic: "foobar topic".to_string(),
-                            },
-                            Reply::TopicWhoTime {
-                                server_host: server_host.clone(),
-                                channel: channel.clone(),
-                                nick: ctx_nick.clone(),
-                                set_at: now,
-                            },
-                            Reply::Nam {
-                                server_host: server_host.clone(),
-                                channel: channel.clone(),
-                                nick: ctx_nick.clone(),
-                            },
-                        ],
+                    let mut replies = vec![
+                        Reply::Join {
+                            client: ctx_client.clone(),
+                            channel: channel.clone(),
+                        },
+                        // TODO have Nick available here
+                        // TODO persist the channel metadata
+                        Reply::Topic {
+                            server_host: server_host.clone(),
+                            nick: ctx_nick.clone(),
+                            channel: channel.clone(),
+                            topic: "foobar topic".to_string(),
+                        },
+                        Reply::TopicWhoTime {
+                            server_host: server_host.clone(),
+                            channel: channel.clone(),
+                            nick: ctx_nick.clone(),
+                            set_at: now,
+                        }
+                    ];
+
+                    let channel_users = match srv_channels.get(channel) {
+                        Some(c) => {
+                            let mut member_nicks = vec![];
+                            
+                            for member in &c.members {
+                                let other_user = match conn_read.get(&member) {
+                                    Some(c) => c,
+                                    None => {
+                                        println!(
+                                            "Connection context not found for matched channel user {}",
+                                            member
+                                        );
+                                        continue;
+                                    }
+                                };
+
+                                if let Some(e) = &other_user.nick {
+                                    member_nicks.push(e.clone())
+                                }
+                            }
+
+                            member_nicks
+                        },
+                        None => {
+                            println!("Unable for {} to join topic {} as user list not found for it", ctx_nick, channel);
+                            continue;
+                        }
+                    };
+
+                    replies.push(
+                        Reply::Nam {
+                            server_host: server_host.clone(),
+                            nick: ctx_nick.clone(),
+                            channel: channel.clone(),
+                            channel_users,
+                        }
                     );
+
+                    replies.push(
+                        Reply::EndOfNames {
+                            server_host:server_host.clone(),
+                            nick: ctx_nick.clone(),
+                            channel: channel.clone()
+                        }
+                    );
+
+                    send_replies(&ctx_sender, replies);
                 }
             }
             ClientToServerCommand::Mode { channel } => {
@@ -234,11 +294,6 @@ pub fn run_server(
                 send_replies(
                     &ctx_sender,
                     vec![
-                        Reply::Mode {
-                            server_host: server_host.clone(),
-                            channel: channel.clone(),
-                            mode_string: "+tn".to_string(),
-                        },
                         Reply::ChannelModeIs {
                             server_host: server_host.clone(),
                             nick: ctx_nick.clone(),
