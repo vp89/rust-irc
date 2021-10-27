@@ -299,11 +299,26 @@ pub fn run_server(
                             }
                         };
 
+                        println!("!! {} users found for WHO", users.len());
+
                         let mut replies = vec![];
 
                         for user in users {
-                            let other_user = conn_read.get(&user).unwrap(); // TODO remove unwrap
+                            let other_user = match conn_read.get(&user) {
+                                Some(c) => c,
+                                None => {
+                                    println!(
+                                        "Connection context not found for matched WHO user {}",
+                                        user
+                                    );
+                                    continue;
+                                }
+                            };
 
+                            let empty_str = "".to_string();
+                            println!("WHO {} {}", other_user.uuid, other_user.nick.as_ref().unwrap_or(&empty_str));
+
+                            // TODO
                             let empty_ip = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 1234));
 
                             // TODOTODOTODO
@@ -324,6 +339,8 @@ pub fn run_server(
                             nick: ctx_nick.clone(),
                             mask: raw_mask.clone(),
                         });
+
+                        send_replies(&ctx_sender, replies);
                     },
                     None => {
                         // TODO send error reply

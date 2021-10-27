@@ -13,7 +13,6 @@ pub fn run_sender(receiver: Receiver<Reply>, write_handle: &mut TcpStream) -> Re
             .map_err(ServerToClientChannelFailedToReceive)?;
 
         let reply = &format!("{}{}", &received.to_string(), "\r\n");
-        println!("Sending {}", reply);
 
         if let Err(e) = write_handle.write_all(reply.as_bytes()) {
             println!("Error writing reply {} {:?}", reply, e);

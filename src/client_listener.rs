@@ -86,7 +86,6 @@ pub fn run_listener(
                     write_handle.flush()?;
                 }
                 ClientToServerCommand::Pong => {
-                    println!("RECEIVED PONG");
                     last_pong = Instant::now();
                     waiting_for_pong = false;
                 }
@@ -123,8 +122,6 @@ fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
     match std::str::from_utf8(bytes) {
         Ok(s) => {
             let raw_payload = s.to_owned();
-
-            println!("Received {}", raw_payload);
 
             // map to owned String so the ownership can be moved out of this function scope
             let mut split_messages: Vec<String> =
