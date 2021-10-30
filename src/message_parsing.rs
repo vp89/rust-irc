@@ -59,12 +59,7 @@ impl ClientToServerMessage {
                     }),
                 }?;
 
-                let message = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "message".to_string(),
-                    }),
-                }?;
+                let message: String = words.map(|w| format!("{} ", w)).collect::<String>()[1..].trim_end().to_string();
 
                 ClientToServerCommand::PrivMsg { channel, message }
             }

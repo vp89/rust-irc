@@ -223,7 +223,6 @@ pub fn run_server(
                             client: ctx_client.clone(),
                             channel: channel.clone(),
                         },
-                        // TODO have Nick available here
                         // TODO persist the channel metadata
                         Reply::Topic {
                             server_host: server_host.clone(),
@@ -239,34 +238,32 @@ pub fn run_server(
                         }
                     ];
 
-                    let channel_users = match srv_channels.get(channel) {
-                        Some(c) => {
-                            let mut member_nicks = vec![];
-                            
-                            for member in &c.members {
-                                let other_user = match conn_read.get(&member) {
-                                    Some(c) => c,
-                                    None => {
-                                        println!(
-                                            "Connection context not found for matched channel user {}",
-                                            member
-                                        );
-                                        continue;
-                                    }
-                                };
-
-                                if let Some(e) = &other_user.nick {
-                                    member_nicks.push(e.clone())
-                                }
-                            }
-
-                            member_nicks
-                        },
+                    let chan_ctx = match srv_channels.get(channel) {
+                        Some(c) => c,
                         None => {
                             println!("Unable for {} to join topic {} as user list not found for it", ctx_nick, channel);
                             continue;
                         }
                     };
+
+                    let mut channel_users = vec![];
+                    
+                    for member in &chan_ctx.members {
+                        let other_user = match conn_read.get(&member) {
+                            Some(c) => c,
+                            None => {
+                                println!(
+                                    "Connection context not found for matched channel user {}",
+                                    member
+                                );
+                                continue;
+                            }
+                        };
+
+                        if let Some(e) = &other_user.nick {
+                            channel_users.push(e.clone())
+                        }
+                    }
 
                     replies.push(
                         Reply::Nam {
@@ -286,6 +283,45 @@ pub fn run_server(
                     );
 
                     send_replies(&ctx_sender, replies);
+
+                    for member in &chan_ctx.members {
+                        if member == &received.connection_uuid {
+                            continue;
+                        }
+
+                        let other_user = match conn_read.get(&member) {
+                            Some(c) => c,
+                            None => {
+                                println!(
+                                    "Connection context not found for matched channel user {}",
+                                    member
+                                );
+                                continue;
+                            }
+                        };
+
+                        let lock = &other_user.client_sender_channel.lock();
+                        let sender = match lock {
+                            Ok(s) => s,
+                            Err(e) => {
+                                println!(
+                                    "Unable to lock sender channel for member {} {:?}",
+                                    member, e
+                                );
+                                continue;
+                            }
+                        };
+
+                        send_replies(
+                            &sender,
+                            vec![
+                                Reply::Join {
+                                    client: ctx_client.clone(),
+                                    channel: channel.clone()
+                                }
+                            ]
+                        );
+                    }
                 }
             }
             ClientToServerCommand::Mode { channel } => {
@@ -427,12 +463,11 @@ pub fn run_server(
                     }
                 };
 
-                println!(
-                    "Found {} channel members connected to {}",
-                    &channel_ctx.members.len(),
-                    channel
-                );
                 for member in &channel_ctx.members {
+                    if member == &received.connection_uuid {
+                        continue;
+                    }
+
                     let connected_member = match conn_read.get(member) {
                         Some(conn) => conn,
                         None => {
@@ -440,8 +475,6 @@ pub fn run_server(
                             continue;
                         }
                     };
-
-                    println!("FOUND {}", &connected_member.nick.as_ref().unwrap());
 
                     let lock = &connected_member.client_sender_channel.lock();
                     let sender = match lock {
