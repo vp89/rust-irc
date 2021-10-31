@@ -65,7 +65,11 @@ impl ClientToServerMessage {
                     _ => Ok(())
                 }?;
 
-                let message: String = words.map(|w| format!("{} ", w)).collect::<String>()[1..].trim_end().to_string();
+                let message = words.map(|w| format!("{} ", w)).collect::<String>().trim_start_matches(':').trim_end().to_string();
+
+                if message.is_empty() {
+                    return Err(MessageParsingErrorMissingParameter { param_name: "message".to_string() })
+                };
 
                 ClientToServerCommand::PrivMsg { channel, message }
             }
@@ -360,5 +364,15 @@ mod tests {
         let message = ClientToServerMessage::from_str(raw_str, uuid);
         let expected = Err(MessageParsingErrorInvalidChannelFormat { provided_channel: ":foo".to_string() });
         assert_eq!(expected, message);
+    }
+
+    #[test_case("PRIVMSG #hey" ; "_errors")]
+    #[test_case("PRIVMSG #hey " ; "_trailing_space_errors")]
+    fn message_parsing_privmsg_message_missing(raw_str: &str) {
+        let uuid = Uuid::new_v4();
+        let message = ClientToServerMessage::from_str(raw_str, uuid);
+        let expected = Err(MessageParsingErrorMissingParameter { param_name: "message".to_string() });
+        assert_eq!(expected, message);
+
     }
 }
