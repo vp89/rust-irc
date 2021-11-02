@@ -9,7 +9,7 @@ pub enum Error {
     MessageParsingErrorInvalidChannelFormat { provided_channel: String },
     ServerToClientChannelFailedToReceive(RecvError),
     ClientToServerChannelFailedToReceive(RecvError),
-    TestErrorNoMoreMessagesInReceiver
+    TestErrorNoMoreMessagesInReceiver,
 }
 
 impl Display for Error {
@@ -46,7 +46,9 @@ impl Display for Error {
                     e
                 )
             }
-            Error::TestErrorNoMoreMessagesInReceiver => { write!(f, "") }
+            Error::TestErrorNoMoreMessagesInReceiver => {
+                write!(f, "")
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+mod channels;
 mod client_listener;
 mod client_sender;
 mod error;
@@ -5,7 +6,6 @@ mod message_parsing;
 mod replies;
 mod result;
 mod server;
-mod channels;
 
 use chrono::{DateTime, Utc};
 use replies::Reply;

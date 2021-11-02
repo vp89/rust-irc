@@ -117,7 +117,7 @@ pub enum Reply {
         other_host: String,
         other_server: String,
         other_nick: String,
-        other_realname: String
+        other_realname: String,
     },
     Nam {
         server_host: String,
@@ -354,15 +354,21 @@ impl Display for Reply {
                 other_host,
                 other_server,
                 other_nick,
-                other_realname
+                other_realname,
             } => {
                 write!(
                     f,
                     ":{} 352 {} {} {} {} {} {} H@ :0 {}",
-                    server_host, nick, mask, other_user, other_host, other_server, other_nick, other_realname
+                    server_host,
+                    nick,
+                    mask,
+                    other_user,
+                    other_host,
+                    other_server,
+                    other_nick,
+                    other_realname
                 )
             }
-            //RES -> :<source> 353 nick = #channel :listofusers with @
             Reply::Nam {
                 server_host,
                 nick,
@@ -381,8 +387,12 @@ impl Display for Reply {
                     }
                 }
 
-                write!(f, ":{} 353 {} = {} {}", server_host, nick, channel, printed_users)
-            },
+                write!(
+                    f,
+                    ":{} 353 {} = {} {}",
+                    server_host, nick, channel, printed_users
+                )
+            }
             Reply::EndOfNames {
                 server_host,
                 nick,

@@ -12,13 +12,30 @@ pub struct ClientToServerMessage {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ClientToServerCommand {
     Unhandled,
-    Nick { nick: String },
-    Ping { token: String },
-    Join { channels: Vec<String> },
-    Mode { channel: String },
-    Who { mask: Option<WhoMask> },
-    PrivMsg { channel: String, message: String },
-    User { user: String, mode: String, realname: String },
+    Nick {
+        nick: String,
+    },
+    Ping {
+        token: String,
+    },
+    Join {
+        channels: Vec<String>,
+    },
+    Mode {
+        channel: String,
+    },
+    Who {
+        mask: Option<WhoMask>,
+    },
+    PrivMsg {
+        channel: String,
+        message: String,
+    },
+    User {
+        user: String,
+        mode: String,
+        realname: String,
+    },
     Pong,
     Quit,
 }
@@ -27,7 +44,7 @@ pub enum ClientToServerCommand {
 #[derive(Debug, Clone, PartialEq)]
 pub struct WhoMask {
     pub value: String,
-    pub only_operators: bool
+    pub only_operators: bool,
 }
 
 // TODO this doesnt handle NICK params
@@ -60,15 +77,26 @@ impl ClientToServerMessage {
                 }?;
 
                 let satisfies_guard = &' ';
-                match (&channel.chars().nth(0), satisfies_guard) {
-                    (None, c) | (Some(c), _) if c != &'#' => Err(MessageParsingErrorInvalidChannelFormat { provided_channel: channel.to_string() }),
-                    _ => Ok(())
+                match (&channel.chars().next(), satisfies_guard) {
+                    (None, c) | (Some(c), _) if c != &'#' => {
+                        Err(MessageParsingErrorInvalidChannelFormat {
+                            provided_channel: channel.to_string(),
+                        })
+                    }
+                    _ => Ok(()),
                 }?;
 
-                let message = words.map(|w| format!("{} ", w)).collect::<String>().trim_start_matches(':').trim_end().to_string();
+                let message = words
+                    .map(|w| format!("{} ", w))
+                    .collect::<String>()
+                    .trim_start_matches(':')
+                    .trim_end()
+                    .to_string();
 
                 if message.is_empty() {
-                    return Err(MessageParsingErrorMissingParameter { param_name: "message".to_string() })
+                    return Err(MessageParsingErrorMissingParameter {
+                        param_name: "message".to_string(),
+                    });
                 };
 
                 ClientToServerCommand::PrivMsg { channel, message }
@@ -119,12 +147,15 @@ impl ClientToServerMessage {
                     Some(s) => {
                         let only_operators = match words.next() {
                             Some("o") => true,
-                            Some(_) | None => false
+                            Some(_) | None => false,
                         };
 
-                        Some(WhoMask { value: s.to_owned(), only_operators })
-                    },
-                    None => None
+                        Some(WhoMask {
+                            value: s.to_owned(),
+                            only_operators,
+                        })
+                    }
+                    None => None,
                 };
 
                 ClientToServerCommand::Who { mask }
@@ -143,7 +174,7 @@ impl ClientToServerMessage {
                         param_name: "mode".to_string(),
                     }),
                 }?;
-                
+
                 // skip the "unused" argument
                 words.next();
 
@@ -154,7 +185,11 @@ impl ClientToServerMessage {
                     }),
                 }?;
 
-                ClientToServerCommand::User { user, mode, realname }
+                ClientToServerCommand::User {
+                    user,
+                    mode,
+                    realname,
+                }
             }
             "PONG" => ClientToServerCommand::Pong,
             "QUIT" => ClientToServerCommand::Quit,
@@ -173,8 +208,8 @@ impl ClientToServerMessage {
 
 #[cfg(test)]
 mod tests {
-    use test_case::test_case;
     use super::*;
+    use test_case::test_case;
 
     #[test]
     fn messageparsing_missingcommand_errors() {
@@ -288,9 +323,7 @@ mod tests {
         let uuid = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: None,
-            command: ClientToServerCommand::Who {
-                mask: None,
-            },
+            command: ClientToServerCommand::Who { mask: None },
             connection_uuid: uuid,
         };
         let raw_str = &format!("WHO");
@@ -305,7 +338,10 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Who {
-                mask: Some(WhoMask { value: "#heythere".to_string(), only_operators: false }),
+                mask: Some(WhoMask {
+                    value: "#heythere".to_string(),
+                    only_operators: false,
+                }),
             },
             connection_uuid: uuid,
         };
@@ -321,7 +357,10 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Who {
-                mask: Some(WhoMask { value: "#heythere".to_string(), only_operators: true }),
+                mask: Some(WhoMask {
+                    value: "#heythere".to_string(),
+                    only_operators: true,
+                }),
             },
             connection_uuid: uuid,
         };
@@ -340,7 +379,7 @@ mod tests {
                 channel: "#blah".to_string(),
                 message: "HI. THERE? HELLO!".to_string(),
             },
-            connection_uuid: uuid
+            connection_uuid: uuid,
         };
         let raw_str = &format!("PRIVMSG #blah :HI. THERE? HELLO!");
         let message =
@@ -353,7 +392,9 @@ mod tests {
         let uuid = Uuid::new_v4();
         let raw_str = &format!("PRIVMSG");
         let message = ClientToServerMessage::from_str(raw_str, uuid);
-        let expected = Err(MessageParsingErrorMissingParameter { param_name: "channel".to_string() });
+        let expected = Err(MessageParsingErrorMissingParameter {
+            param_name: "channel".to_string(),
+        });
         assert_eq!(expected, message);
     }
 
@@ -362,7 +403,9 @@ mod tests {
         let uuid = Uuid::new_v4();
         let raw_str = &format!("PRIVMSG :foo");
         let message = ClientToServerMessage::from_str(raw_str, uuid);
-        let expected = Err(MessageParsingErrorInvalidChannelFormat { provided_channel: ":foo".to_string() });
+        let expected = Err(MessageParsingErrorInvalidChannelFormat {
+            provided_channel: ":foo".to_string(),
+        });
         assert_eq!(expected, message);
     }
 
@@ -371,8 +414,9 @@ mod tests {
     fn message_parsing_privmsg_message_missing(raw_str: &str) {
         let uuid = Uuid::new_v4();
         let message = ClientToServerMessage::from_str(raw_str, uuid);
-        let expected = Err(MessageParsingErrorMissingParameter { param_name: "message".to_string() });
+        let expected = Err(MessageParsingErrorMissingParameter {
+            param_name: "message".to_string(),
+        });
         assert_eq!(expected, message);
-
     }
 }

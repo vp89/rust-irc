@@ -1,8 +1,17 @@
 use chrono::Utc;
-use std::{cell::RefCell, collections::{HashMap, VecDeque}, net::{Ipv4Addr, SocketAddr, SocketAddrV4}, sync::{Arc, Mutex, RwLock, mpsc::{self, Sender}}};
+use std::{
+    collections::HashMap,
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    sync::{mpsc::Sender, Arc, RwLock},
+};
 use uuid::Uuid;
 
-use crate::{ConnectionContext, ServerContext, channels::{FakeChannelReceiver, ReceiverWrapper}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
+use crate::{
+    channels::ReceiverWrapper,
+    message_parsing::{ClientToServerCommand, ClientToServerMessage},
+    replies::Reply,
+    ConnectionContext, ServerContext,
+};
 
 use crate::result::Result;
 
@@ -16,8 +25,7 @@ pub fn run_server(
     let mut srv_channels: HashMap<String, ChannelContext> = HashMap::new();
 
     loop {
-        let received = receiver_channel
-            .receive()?;
+        let received = receiver_channel.receive()?;
 
         let conn_read = match connections.read() {
             Ok(c) => c,
@@ -51,7 +59,11 @@ pub fn run_server(
 
         match &received.command {
             // These require modifying the connection context
-            ClientToServerCommand::User { user, mode, realname } => {
+            ClientToServerCommand::User {
+                user,
+                mode: _,
+                realname,
+            } => {
                 drop(conn_read);
 
                 let mut conn_write = match connections.write() {
@@ -235,21 +247,24 @@ pub fn run_server(
                             channel: channel.clone(),
                             nick: ctx_nick.clone(),
                             set_at: now,
-                        }
+                        },
                     ];
 
                     let chan_ctx = match srv_channels.get(channel) {
                         Some(c) => c,
                         None => {
-                            println!("Unable for {} to join topic {} as user list not found for it", ctx_nick, channel);
+                            println!(
+                                "Unable for {} to join topic {} as user list not found for it",
+                                ctx_nick, channel
+                            );
                             continue;
                         }
                     };
 
                     let mut channel_users = vec![];
-                    
+
                     for member in &chan_ctx.members {
-                        let other_user = match conn_read.get(&member) {
+                        let other_user = match conn_read.get(member) {
                             Some(c) => c,
                             None => {
                                 println!(
@@ -265,22 +280,18 @@ pub fn run_server(
                         }
                     }
 
-                    replies.push(
-                        Reply::Nam {
-                            server_host: server_host.clone(),
-                            nick: ctx_nick.clone(),
-                            channel: channel.clone(),
-                            channel_users,
-                        }
-                    );
+                    replies.push(Reply::Nam {
+                        server_host: server_host.clone(),
+                        nick: ctx_nick.clone(),
+                        channel: channel.clone(),
+                        channel_users,
+                    });
 
-                    replies.push(
-                        Reply::EndOfNames {
-                            server_host:server_host.clone(),
-                            nick: ctx_nick.clone(),
-                            channel: channel.clone()
-                        }
-                    );
+                    replies.push(Reply::EndOfNames {
+                        server_host: server_host.clone(),
+                        nick: ctx_nick.clone(),
+                        channel: channel.clone(),
+                    });
 
                     send_replies(&ctx_sender, replies);
 
@@ -289,7 +300,7 @@ pub fn run_server(
                             continue;
                         }
 
-                        let other_user = match conn_read.get(&member) {
+                        let other_user = match conn_read.get(member) {
                             Some(c) => c,
                             None => {
                                 println!(
@@ -313,13 +324,11 @@ pub fn run_server(
                         };
 
                         send_replies(
-                            &sender,
-                            vec![
-                                Reply::Join {
-                                    client: ctx_client.clone(),
-                                    channel: channel.clone()
-                                }
-                            ]
+                            sender,
+                            vec![Reply::Join {
+                                client: ctx_client.clone(),
+                                channel: channel.clone(),
+                            }],
                         );
                     }
                 }
@@ -348,22 +357,22 @@ pub fn run_server(
             }
             // TODO add mask
             /*
-                352    RPL_WHOREPLY
-                        "<channel> <user> <host> <server> <nick>
-                        ( "H" / "G" > ["*"] [ ( "@" / "+" ) ]
-                        :<hopcount> <real name>"
+                 352    RPL_WHOREPLY
+                         "<channel> <user> <host> <server> <nick>
+                         ( "H" / "G" > ["*"] [ ( "@" / "+" ) ]
+                         :<hopcount> <real name>"
 
-                315    RPL_ENDOFWHO
-                        "<name> :End of WHO list"
+                 315    RPL_ENDOFWHO
+                         "<name> :End of WHO list"
 
-                    - The RPL_WHOREPLY and RPL_ENDOFWHO pair are used
-                    to answer a WHO message.  The RPL_WHOREPLY is only
-                    sent if there is an appropriate match to the WHO
-                    query.  If there is a list of parameters supplied
-                    with a WHO message, a RPL_ENDOFWHO MUST be sent
-                    after processing each list item with <name> being
-                    the item.
-           */
+                     - The RPL_WHOREPLY and RPL_ENDOFWHO pair are used
+                     to answer a WHO message.  The RPL_WHOREPLY is only
+                     sent if there is an appropriate match to the WHO
+                     query.  If there is a list of parameters supplied
+                     with a WHO message, a RPL_ENDOFWHO MUST be sent
+                     after processing each list item with <name> being
+                     the item.
+            */
             ClientToServerCommand::Who { mask } => {
                 /*
                 The <mask> passed to WHO is matched against users' host, server, real
@@ -385,8 +394,8 @@ pub fn run_server(
                         let users = match chan_ctx {
                             Some(c) => &c.members,
                             None => {
-                                 // todo return all conns that match the mask
-                                 &empty_members
+                                // todo return all conns that match the mask
+                                &empty_members
                             }
                         };
 
@@ -395,7 +404,7 @@ pub fn run_server(
                         let mut replies = vec![];
 
                         for user in users {
-                            let other_user = match conn_read.get(&user) {
+                            let other_user = match conn_read.get(user) {
                                 Some(c) => c,
                                 None => {
                                     println!(
@@ -407,10 +416,17 @@ pub fn run_server(
                             };
 
                             let empty_str = "".to_string();
-                            println!("WHO {} {}", other_user.uuid, other_user.nick.as_ref().unwrap_or(&empty_str));
+                            println!(
+                                "WHO {} {}",
+                                other_user.uuid,
+                                other_user.nick.as_ref().unwrap_or(&empty_str)
+                            );
 
                             // TODO
-                            let empty_ip = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 1234));
+                            let empty_ip = SocketAddr::V4(SocketAddrV4::new(
+                                Ipv4Addr::new(127, 0, 0, 1),
+                                1234,
+                            ));
 
                             // TODOTODOTODO
                             replies.push(Reply::Who {
@@ -418,10 +434,18 @@ pub fn run_server(
                                 nick: ctx_nick.clone(),
                                 mask: raw_mask.clone(),
                                 other_user: other_user.user.as_ref().unwrap_or(&empty_str).clone(),
-                                other_host: other_user.client_host.as_ref().unwrap_or(&empty_ip).to_string(),
+                                other_host: other_user
+                                    .client_host
+                                    .as_ref()
+                                    .unwrap_or(&empty_ip)
+                                    .to_string(),
                                 other_server: server_host.clone(), // multi-server not supported
                                 other_nick: other_user.nick.as_ref().unwrap_or(&empty_str).clone(),
-                                other_realname: other_user.real_name.as_ref().unwrap_or(&empty_str).clone()
+                                other_realname: other_user
+                                    .real_name
+                                    .as_ref()
+                                    .unwrap_or(&empty_str)
+                                    .clone(),
                             })
                         }
 
@@ -432,7 +456,7 @@ pub fn run_server(
                         });
 
                         send_replies(&ctx_sender, replies);
-                    },
+                    }
                     None => {
                         // TODO send error reply
                         /*
@@ -522,63 +546,78 @@ struct ChannelContext {
     members: Vec<Uuid>,
 }
 
-#[test]
-pub fn server_nickcommandsent_replystormissent() {
-    // Arrange
-    let mut connections = HashMap::new();
-
-    let (sender, test_receiver) = mpsc::channel();
-    let connection_uuid = Uuid::new_v4();
-    connections.insert(connection_uuid, ConnectionContext {
-        uuid: connection_uuid,
-        client_sender_channel: Mutex::new(sender),
-        client: None,
-        nick: None,
-        user: None,
-        real_name: None,
-        client_host: None,
-    });
-
-    let connections = Arc::new(RwLock::new(connections));
-
-    let mut messages = VecDeque::new();
-    messages.push_front(ClientToServerMessage {
-        source: None,
-        command: ClientToServerCommand::Nick {
-            nick: "JOE".to_string(),
-        },
-        connection_uuid,
-    });
-    
-    let receiver = FakeChannelReceiver {
-        faked_messages: RefCell::new(Box::new(messages)),
-        receive_count: RefCell::new(0)
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::channels::FakeChannelReceiver;
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::sync::{
+        mpsc::{self},
+        Mutex,
     };
 
-    let context = ServerContext {
-        start_time: Utc::now(),
-        server_host: "localhost".to_string(),
-        version: "0.0.1".to_string(),
-        ping_frequency: std::time::Duration::from_secs(60),
-    };
+    #[test]
+    pub fn server_nickcommandsent_replystormissent() {
+        // Arrange
+        let mut connections = HashMap::new();
 
-    // Act
-    let assert_connections = connections.clone();
-    let result = run_server(&context, &receiver, connections);
+        let (sender, test_receiver) = mpsc::channel();
+        let connection_uuid = Uuid::new_v4();
+        connections.insert(
+            connection_uuid,
+            ConnectionContext {
+                uuid: connection_uuid,
+                client_sender_channel: Mutex::new(sender),
+                client: None,
+                nick: None,
+                user: None,
+                real_name: None,
+                client_host: None,
+            },
+        );
 
-    // Assert
-    if let Ok(()) = result {
-        assert!(false)
+        let connections = Arc::new(RwLock::new(connections));
+
+        let mut messages = VecDeque::new();
+        messages.push_front(ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::Nick {
+                nick: "JOE".to_string(),
+            },
+            connection_uuid,
+        });
+
+        let receiver = FakeChannelReceiver {
+            faked_messages: RefCell::new(Box::new(messages)),
+            receive_count: RefCell::new(0),
+        };
+
+        let context = ServerContext {
+            start_time: Utc::now(),
+            server_host: "localhost".to_string(),
+            version: "0.0.1".to_string(),
+            ping_frequency: std::time::Duration::from_secs(60),
+        };
+
+        // Act
+        let assert_connections = connections.clone();
+        let result = run_server(&context, &receiver, connections);
+
+        // Assert
+        if let Ok(()) = result {
+            assert!(false)
+        }
+        assert_eq!(2, receiver.receive_count.take());
+        // try_iter is required because the sender channel is kept alive due
+        // to cloning the Arc to the connections map
+        // try_iter will yield whatever is in the receiver even
+        // though the sender hasn't hung up whereas iter would block
+        // because the sender hasn't hung up
+        assert_eq!(16, test_receiver.try_iter().count());
+
+        let dict = assert_connections.read().unwrap();
+        let conn_ctx = dict.get(&connection_uuid).unwrap();
+        assert_eq!(&Some("JOE".to_string()), &conn_ctx.nick);
     }
-    assert_eq!(2, receiver.receive_count.take());
-    // try_iter is required because the sender channel is kept alive due
-    // to cloning the Arc to the connections map
-    // try_iter will yield whatever is in the receiver even
-    // though the sender hasn't hung up whereas iter would block
-    // because the sender hasn't hung up
-    assert_eq!(16, test_receiver.try_iter().count());
-
-    let dict = assert_connections.read().unwrap();
-    let conn_ctx = dict.get(&connection_uuid).unwrap();
-    assert_eq!(&Some("JOE".to_string()), &conn_ctx.nick);
 }
