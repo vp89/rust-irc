@@ -355,24 +355,6 @@ pub fn run_server(
                     ],
                 )
             }
-            // TODO add mask
-            /*
-                 352    RPL_WHOREPLY
-                         "<channel> <user> <host> <server> <nick>
-                         ( "H" / "G" > ["*"] [ ( "@" / "+" ) ]
-                         :<hopcount> <real name>"
-
-                 315    RPL_ENDOFWHO
-                         "<name> :End of WHO list"
-
-                     - The RPL_WHOREPLY and RPL_ENDOFWHO pair are used
-                     to answer a WHO message.  The RPL_WHOREPLY is only
-                     sent if there is an appropriate match to the WHO
-                     query.  If there is a list of parameters supplied
-                     with a WHO message, a RPL_ENDOFWHO MUST be sent
-                     after processing each list item with <name> being
-                     the item.
-            */
             ClientToServerCommand::Who { mask } => {
                 /*
                 The <mask> passed to WHO is matched against users' host, server, real
@@ -399,8 +381,6 @@ pub fn run_server(
                             }
                         };
 
-                        println!("!! {} users found for WHO", users.len());
-
                         let mut replies = vec![];
 
                         for user in users {
@@ -416,11 +396,6 @@ pub fn run_server(
                             };
 
                             let empty_str = "".to_string();
-                            println!(
-                                "WHO {} {}",
-                                other_user.uuid,
-                                other_user.nick.as_ref().unwrap_or(&empty_str)
-                            );
 
                             // TODO
                             let empty_ip = SocketAddr::V4(SocketAddrV4::new(

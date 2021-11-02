@@ -6,6 +6,7 @@ mod message_parsing;
 mod replies;
 mod result;
 mod server;
+mod util;
 
 use chrono::{DateTime, Utc};
 use replies::Reply;
