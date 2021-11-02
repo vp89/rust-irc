@@ -1,7 +1,5 @@
 use regex::Regex;
 
-// TODO work in progress, this will be used by the WHO command
-// to find users
 pub fn match_mask(input: &str, mask: &str) -> bool {
     let mut regex = mask.replace("*", ".*").replace("?", ".");
     regex.push('$');
@@ -9,7 +7,10 @@ pub fn match_mask(input: &str, mask: &str) -> bool {
     let re = match Regex::new(&regex) {
         Ok(re) => re,
         // TODO
-        Err(e) => return false
+        Err(e) => {
+            println!("Error building regex {} {} {:?}", mask, regex, e);
+            return false;
+        }
     };
 
     re.is_match(input)

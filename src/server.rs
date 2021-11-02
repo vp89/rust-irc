@@ -6,12 +6,7 @@ use std::{
 };
 use uuid::Uuid;
 
-use crate::{
-    channels::ReceiverWrapper,
-    message_parsing::{ClientToServerCommand, ClientToServerMessage},
-    replies::Reply,
-    ConnectionContext, ServerContext,
-};
+use crate::{ConnectionContext, ServerContext, channels::ReceiverWrapper, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply, util};
 
 use crate::result::Result;
 
@@ -371,13 +366,30 @@ pub fn run_server(
 
                         let chan_ctx = srv_channels.get(raw_mask);
 
-                        let empty_members = vec![];
+                        let mut members = vec![];
 
                         let users = match chan_ctx {
                             Some(c) => &c.members,
                             None => {
-                                // todo return all conns that match the mask
-                                &empty_members
+                                let empty_str = "".to_string();
+                                let empty_ip = SocketAddr::V4(SocketAddrV4::new(
+                                    Ipv4Addr::new(127, 0, 0, 1),
+                                    1234,
+                                ));
+                                for (k, v) in conn_read.iter() {
+                                    let hostmask = format!(
+                                        "{}!{}@{}",
+                                        v.nick.as_ref().unwrap_or(&empty_str).clone(),
+                                        v.user.as_ref().unwrap_or(&empty_str).clone(),
+                                        v.client_host.as_ref().unwrap_or(&empty_ip).clone() // TODO
+                                    );
+
+                                    if util::match_mask(&hostmask, raw_mask) {
+                                        members.push(*k);
+                                    }
+                                }
+
+                                &members
                             }
                         };
 
