@@ -6,7 +6,6 @@ pub fn match_mask(input: &str, mask: &str) -> bool {
 
     let re = match Regex::new(&regex) {
         Ok(re) => re,
-        // TODO
         Err(e) => {
             println!("Error building regex {} {} {:?}", mask, regex, e);
             return false;

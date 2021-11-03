@@ -1,2 +1,0 @@
-- Keep track of number of active users
-- Keep track of who is in a channel
