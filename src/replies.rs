@@ -112,7 +112,7 @@ pub enum Reply {
     Who {
         server_host: String,
         nick: String,
-        mask: String,
+        channel: String,
         other_user: String,
         other_host: String,
         other_server: String,
@@ -349,7 +349,7 @@ impl Display for Reply {
             Reply::Who {
                 server_host,
                 nick,
-                mask,
+                channel,
                 other_user,
                 other_host,
                 other_server,
@@ -361,7 +361,7 @@ impl Display for Reply {
                     ":{} 352 {} {} {} {} {} {} H@ :0 {}",
                     server_host,
                     nick,
-                    mask,
+                    channel,
                     other_user,
                     other_host,
                     other_server,

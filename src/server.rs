@@ -78,7 +78,7 @@ pub fn run_server(
                 };
 
                 conn_context.user = Some(user.to_string());
-                conn_context.real_name = Some(realname.to_string());
+                conn_context.real_name = Some(realname.trim_start_matches(':').to_string());
             }
             ClientToServerCommand::Nick { nick } => {
                 // drop the read lock before taking a write-lock, this needs to be done for any command
@@ -359,6 +359,7 @@ pub fn run_server(
                 match mask {
                     Some(m) => {
                         let raw_mask = &m.value;
+                        let mut is_mask_channel = false;
 
                         // if there is a mask, first check that it matches a channel
                         // The <mask> passed to WHO is matched against users' host, server, real
@@ -369,7 +370,10 @@ pub fn run_server(
                         let mut members = vec![];
 
                         let users = match chan_ctx {
-                            Some(c) => &c.members,
+                            Some(c) => {
+                                is_mask_channel = true;
+                                &c.members
+                            },
                             None => {
                                 let empty_str = "".to_string();
                                 let empty_ip = SocketAddr::V4(SocketAddrV4::new(
@@ -419,7 +423,10 @@ pub fn run_server(
                             replies.push(Reply::Who {
                                 server_host: server_host.clone(),
                                 nick: ctx_nick.clone(),
-                                mask: raw_mask.clone(),
+                                channel: match is_mask_channel {
+                                    true => raw_mask.clone(),
+                                    false => "*".to_string()
+                                },
                                 other_user: other_user.user.as_ref().unwrap_or(&empty_str).clone(),
                                 other_host: other_user
                                     .client_host
