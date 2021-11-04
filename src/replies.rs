@@ -162,6 +162,11 @@ pub enum Reply {
         channel: String,
         message: String,
     },
+    ErrNeedMoreParams {
+        server_host: String,
+        nick: String,
+        command: String
+    },
 }
 
 impl Display for Reply {
@@ -445,6 +450,9 @@ impl Display for Reply {
                 }
 
                 write!(f, "{} PRIVMSG {} :{}", prefix, channel, message)
+            },
+            Reply::ErrNeedMoreParams { server_host, nick, command } => {
+                write!(f, "{} 461 {} {} :Not enough parameters", server_host, nick, command)
             }
         }
     }

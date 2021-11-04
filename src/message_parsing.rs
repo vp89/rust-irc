@@ -25,7 +25,8 @@ pub enum ClientToServerCommand {
         channel: String,
     },
     Who {
-        mask: Option<WhoMask>,
+        mask: Option<String>,
+        only_operators: bool,
     },
     PrivMsg {
         channel: String,
@@ -38,13 +39,6 @@ pub enum ClientToServerCommand {
     },
     Pong,
     Quit,
-}
-
-// encoding via this type that only_operators can only exist if any mask is provided
-#[derive(Debug, Clone, PartialEq)]
-pub struct WhoMask {
-    pub value: String,
-    pub only_operators: bool,
 }
 
 // TODO this doesnt handle NICK params
@@ -144,21 +138,16 @@ impl ClientToServerMessage {
             }
             "WHO" => {
                 let mask = match words.next() {
-                    Some(s) => {
-                        let only_operators = match words.next() {
-                            Some("o") => true,
-                            Some(_) | None => false,
-                        };
-
-                        Some(WhoMask {
-                            value: s.to_owned(),
-                            only_operators,
-                        })
-                    }
+                    Some(s) => Some(s.to_owned()),
                     None => None,
                 };
 
-                ClientToServerCommand::Who { mask }
+                let only_operators = match words.next() {
+                    Some("o") => true,
+                    Some(_) | None => false,
+                };
+
+                ClientToServerCommand::Who { mask, only_operators }
             }
             "USER" => {
                 let user = match words.next() {
@@ -323,7 +312,7 @@ mod tests {
         let uuid = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: None,
-            command: ClientToServerCommand::Who { mask: None },
+            command: ClientToServerCommand::Who { mask: None, only_operators: false },
             connection_uuid: uuid,
         };
         let raw_str = &format!("WHO");
@@ -338,10 +327,8 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Who {
-                mask: Some(WhoMask {
-                    value: "#heythere".to_string(),
-                    only_operators: false,
-                }),
+                mask: Some("#heythere".to_string()),
+                only_operators: false,
             },
             connection_uuid: uuid,
         };
@@ -357,10 +344,8 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Who {
-                mask: Some(WhoMask {
-                    value: "#heythere".to_string(),
-                    only_operators: true,
-                }),
+                mask: Some("#heythere".to_string()),
+                only_operators: true,
             },
             connection_uuid: uuid,
         };
