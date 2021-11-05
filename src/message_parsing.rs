@@ -137,17 +137,17 @@ impl ClientToServerMessage {
                 ClientToServerCommand::Mode { channel }
             }
             "WHO" => {
-                let mask = match words.next() {
-                    Some(s) => Some(s.to_owned()),
-                    None => None,
-                };
+                let mask = words.next().map(|s| s.to_owned());
 
                 let only_operators = match words.next() {
                     Some("o") => true,
                     Some(_) | None => false,
                 };
 
-                ClientToServerCommand::Who { mask, only_operators }
+                ClientToServerCommand::Who {
+                    mask,
+                    only_operators,
+                }
             }
             "USER" => {
                 let user = match words.next() {
@@ -312,7 +312,10 @@ mod tests {
         let uuid = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: None,
-            command: ClientToServerCommand::Who { mask: None, only_operators: false },
+            command: ClientToServerCommand::Who {
+                mask: None,
+                only_operators: false,
+            },
             connection_uuid: uuid,
         };
         let raw_str = &format!("WHO");

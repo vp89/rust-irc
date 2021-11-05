@@ -2,6 +2,7 @@ mod channels;
 mod client_listener;
 mod client_sender;
 mod error;
+mod handlers;
 mod message_parsing;
 mod replies;
 mod result;
@@ -151,4 +152,8 @@ pub struct ConnectionContext {
     pub user: Option<String>,
     pub real_name: Option<String>,
     pub client_host: Option<SocketAddr>,
+}
+
+pub struct ChannelContext {
+    members: Vec<Uuid>,
 }
