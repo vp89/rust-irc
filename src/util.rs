@@ -1,7 +1,8 @@
 use regex::Regex;
 
 pub fn match_mask(input: &str, mask: &str) -> bool {
-    let mut regex = mask.replace("*", ".*").replace("?", ".");
+    let mut regex = String::from("^");
+    regex.push_str(&mask.replace("*", ".*").replace("?", "."));
     regex.push('$');
 
     let re = match Regex::new(&regex) {
@@ -18,6 +19,16 @@ pub fn match_mask(input: &str, mask: &str) -> bool {
 #[test]
 fn foo() {
     assert_eq!(false, match_mask("nick!username@host", "nick"));
+}
+
+#[test]
+fn foo2() {
+    assert_eq!(false, match_mask("nick!username@host", "?"));
+}
+
+#[test]
+fn foo3() {
+    assert_eq!(true, match_mask("nick!username@host", "*"));
 }
 
 #[test]

@@ -61,8 +61,6 @@ pub fn run_listener(
         };
 
         for raw_message in &raw_messages {
-            // TODO is there a way to clean this up so that I only pass in sender/IP on parsing
-            // when I need it? Like a multi-pass parsing?
             let message = match ClientToServerMessage::from_str(raw_message, *connection_id) {
                 Ok(m) => m,
                 Err(e) => {
