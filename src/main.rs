@@ -22,6 +22,8 @@ use std::{
 };
 use uuid::Uuid;
 
+use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender};
+
 fn main() -> io::Result<()> {
     let server_host = "localhost".to_string();
     let context = ServerContext {
@@ -71,6 +73,19 @@ fn main() -> io::Result<()> {
                         println!("Error setting read timeout {:?}", e);
                         return;
                     }
+
+                    if let Err(e) = cloned_server_sender_channel.send(
+                        ClientToServerMessage {
+                            source: None,
+                            command: ClientToServerCommand::Connected {
+                                sender: ReplySender(cloned_client_sender_channel.clone()),
+                                client_ip: stream.peer_addr().ok(),
+                            },
+                            connection_id,
+                        }
+                    ) {
+                        println!("Error sending connection initialization message {:?}", e)
+                    };
 
                     if let Err(e) = client_listener::run_listener(
                         &connection_id,
@@ -122,7 +137,7 @@ pub struct ServerContext {
 
 pub struct ConnectionContext {
     pub connection_id: Uuid,
-    pub client_sender_channel: Sender<Reply>,
+    pub client_sender_channel: ReplySender,
     // TODO remove this?
     pub client: Option<String>,
     pub nick: Option<String>,

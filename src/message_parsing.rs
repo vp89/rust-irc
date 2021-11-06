@@ -6,7 +6,7 @@ use crate::replies::Reply;
 use crate::result::Result;
 use uuid::Uuid;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ClientToServerMessage {
     pub source: Option<String>,
     pub command: ClientToServerCommand,
@@ -14,12 +14,25 @@ pub struct ClientToServerMessage {
 }
 
 #[derive(Debug, Clone)]
+pub struct ReplySender(pub Sender<Reply>);
+
+// this is just implemented to keep the compiler happy
+// we will never need to do equality comparison on this
+impl PartialEq for ReplySender {
+    fn eq(&self, other: &Self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum ClientToServerCommand {
     Unhandled,
+    Connected {
+        sender: ReplySender,
+        client_ip: Option<SocketAddr>
+    },
     Nick {
         nick: String,
-        sender: Sender<Reply>,
-        client_ip: Option<SocketAddr>,
     },
     Ping {
         token: String,
@@ -52,8 +65,6 @@ impl ClientToServerMessage {
     pub fn from_str(
         s: &str,
         connection_id: Uuid,
-        sender: &Sender<Reply>,
-        client_ip: Option<SocketAddr>,
     ) -> Result<Self> {
         let has_source = s.starts_with(':');
         let mut words = s.split_whitespace();
@@ -116,8 +127,6 @@ impl ClientToServerMessage {
 
                 ClientToServerCommand::Nick {
                     nick,
-                    sender: sender.to_owned(),
-                    client_ip,
                 }
             }
             "PING" => {
@@ -215,7 +224,6 @@ mod tests {
     use super::*;
     use test_case::test_case;
 
-    /*
     #[test]
     fn messageparsing_missingcommand_errors() {
         let raw_str = ":";
@@ -223,19 +231,17 @@ mod tests {
         let raw_str = ":abc";
         ClientToServerMessage::from_str(raw_str, Uuid::new_v4()).expect_err("Expected error!");
     }
-    */
 
-    /*
     #[test]
     fn message_parsing_nick_command_has_prefix_success() {
         let expected_nick = format!("Joe");
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: Some(format!("FOO")),
             command: ClientToServerCommand::Nick {
                 nick: expected_nick.clone(),
             },
-            connection_uuid: uuid,
+            connection_id,
         };
         let raw_str = &format!(
             ":{} NICK {}",
@@ -244,79 +250,71 @@ mod tests {
         );
 
         let message =
-            ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid prefix");
+            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid prefix");
         let actual_source = message.source;
         let actual_command = message.command;
         assert_eq!(expected_message.source, actual_source);
         assert_eq!(expected_message.command, actual_command);
     }
-    */
 
-    /*
     #[test]
     fn message_parsing_nick_command_no_prefix_success() {
         let expected_nick = format!("Joe");
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Nick {
                 nick: expected_nick.clone(),
             },
-            connection_uuid: uuid,
+            connection_id,
         };
         let raw_str = &format!("NICK {}", expected_nick);
         let message =
-            ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid prefix");
+            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid prefix");
         let actual_command = message.command;
         assert_eq!(expected_message.command, actual_command);
     }
-    */
 
-    /*
     #[test]
     fn message_parsing_handles_lowercase_commands() {
         let expected_nick = format!("Joe");
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Nick {
                 nick: expected_nick.clone(),
             },
-            connection_uuid: uuid,
+            connection_id,
         };
         let raw_str = &format!("nick {}", expected_nick);
         let message =
-            ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid prefix");
+            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid prefix");
         let actual_command = message.command;
         assert_eq!(expected_message.command, actual_command);
     }
-    */
 
-    /*
     #[test]
     fn message_parsing_valid_join_command_success() {
         let expected_channel = "foobar".to_string();
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Join {
                 channels: vec![expected_channel.clone()],
             },
-            connection_uuid: uuid,
+            connection_id,
         };
         let raw_str = &format!("JOIN {}", expected_channel);
         let message =
-            ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
+            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
-    */
 
-    /*
     #[test]
     fn message_parsing_join_multiple_channels_success() {
         let expected_channel_1 = "foobar".to_string();
         let expected_channel_2 = "barbaz".to_string();
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
 
         let expected_channels = vec![expected_channel_1.clone(), expected_channel_2.clone()];
         let expected_message = ClientToServerMessage {
@@ -324,128 +322,114 @@ mod tests {
             command: ClientToServerCommand::Join {
                 channels: expected_channels.clone(),
             },
-            connection_uuid: uuid,
+            connection_id,
         };
 
         let raw_str = &format!("JOIN {}", expected_channels.join(","));
         let message =
-            ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
+            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
-    */
 
-    /*
     #[test]
     fn message_parsing_who_with_no_mask_success() {
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Who {
                 mask: None,
                 only_operators: false,
             },
-            connection_uuid: uuid,
+            connection_id,
         };
         let raw_str = &format!("WHO");
         let message =
-            ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
+            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
-    */
 
-    /*
+
     #[test]
     fn message_parsing_who_only_operators_defaults_to_false() {
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Who {
                 mask: Some("#heythere".to_string()),
                 only_operators: false,
             },
-            connection_uuid: uuid,
+            connection_id,
         };
         let raw_str = &format!("WHO #heythere");
         let message =
-            ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
+            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
-    */
 
-    /*
     #[test]
     fn message_parsing_who_only_operators_requested_success() {
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Who {
                 mask: Some("#heythere".to_string()),
                 only_operators: true,
             },
-            connection_uuid: uuid,
+            connection_id,
         };
         let raw_str = &format!("WHO #heythere o");
         let message =
-            ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
+            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
-    */
 
-    /*
     #[test]
     fn message_parsing_privmsg_multi_word_message_is_parsed() {
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::PrivMsg {
                 channel: "#blah".to_string(),
                 message: "HI. THERE? HELLO!".to_string(),
             },
-            connection_uuid: uuid,
+            connection_id,
         };
         let raw_str = &format!("PRIVMSG #blah :HI. THERE? HELLO!");
         let message =
-            ClientToServerMessage::from_str(raw_str, uuid).expect("Failed to parse valid message");
+            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
-    */
 
-    /*
     #[test]
     fn message_parsing_privmsg_channel_missing_errors() {
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
         let raw_str = &format!("PRIVMSG");
-        let message = ClientToServerMessage::from_str(raw_str, uuid);
+        let message = ClientToServerMessage::from_str(raw_str, connection_id);
         let expected = Err(MessageParsingErrorMissingParameter {
             param_name: "channel".to_string(),
         });
         assert_eq!(expected, message);
     }
-    */
 
-    /*
     #[test]
     fn message_parsing_privmsg_channel_missing_hash_errors() {
-        let uuid = Uuid::new_v4();
+        let connection_id = Uuid::new_v4();
         let raw_str = &format!("PRIVMSG :foo");
-        let message = ClientToServerMessage::from_str(raw_str, uuid);
+        let message = ClientToServerMessage::from_str(raw_str, connection_id);
         let expected = Err(MessageParsingErrorInvalidChannelFormat {
             provided_channel: ":foo".to_string(),
         });
         assert_eq!(expected, message);
     }
-    */
 
-    /*
     #[test_case("PRIVMSG #hey" ; "_errors")]
     #[test_case("PRIVMSG #hey " ; "_trailing_space_errors")]
     fn message_parsing_privmsg_message_missing(raw_str: &str) {
-        let uuid = Uuid::new_v4();
-        let message = ClientToServerMessage::from_str(raw_str, uuid);
+        let connection_id = Uuid::new_v4();
+        let message = ClientToServerMessage::from_str(raw_str, connection_id);
         let expected = Err(MessageParsingErrorMissingParameter {
             param_name: "message".to_string(),
         });
         assert_eq!(expected, message);
     }
-    */
 }

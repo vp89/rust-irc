@@ -1,12 +1,7 @@
 use chrono::Utc;
 use std::{collections::HashMap, sync::mpsc::Sender};
 
-use crate::{
-    channels::ReceiverWrapper,
-    message_parsing::{ClientToServerCommand, ClientToServerMessage},
-    replies::Reply,
-    ChannelContext, ConnectionContext, ServerContext,
-};
+use crate::{ChannelContext, ConnectionContext, ServerContext, channels::ReceiverWrapper, message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender}, replies::Reply};
 
 use crate::handlers::who::*;
 use crate::result::Result;
@@ -23,27 +18,41 @@ pub fn run_server(
     loop {
         let received = receiver_channel.receive()?;
 
-        if let ClientToServerCommand::Nick {
-            nick,
+        if let ClientToServerCommand::Connected {
             sender,
             client_ip,
         } = &received.command
         {
-            let ctx_version = &server_context.version;
-            let ctx_created_at = &server_context.start_time;
             let ctx = ConnectionContext {
                 connection_id: received.connection_id,
                 client_sender_channel: sender.clone(),
-                nick: Some(nick.to_string()),
-                client: Some(format!("{}!~{}@localhost", nick, nick)),
+                nick: None,
+                client: None,
                 user: None,
                 real_name: None,
                 client_host: *client_ip,
             };
             connections.insert(received.connection_id, ctx);
+        }
+        if let ClientToServerCommand::Nick {
+            nick,
+            ..
+        } = &received.command
+        {
+            let mut conn_context = match connections.get_mut(&received.connection_id) {
+                Some(c) => c,
+                None => {
+                    continue;
+                }
+            };
+            conn_context.nick = Some(nick.to_string());
+            conn_context.client = Some(format!("{}!~{}@localhost", nick, nick));
+
+            let ctx_version = &server_context.version;
+            let ctx_created_at = &server_context.start_time;
 
             send_replies(
-                sender,
+                &conn_context.client_sender_channel.0,
                 vec![
                     Reply::Welcome {
                         server_host: server_host.clone(),
@@ -165,7 +174,8 @@ pub fn run_server(
         let ctx_nick = conn_context.nick.as_ref().unwrap_or(empty_str);
 
         match &received.command {
-            // These require modifying the connection context
+            // These require modifying the connection context so we run them above to make below code easier
+            ClientToServerCommand::Connected { .. } => { }
             ClientToServerCommand::User { .. } => {}
             ClientToServerCommand::Nick { .. } => {}
             ClientToServerCommand::Join { channels } => {
@@ -249,7 +259,7 @@ pub fn run_server(
                         channel: channel.clone(),
                     });
 
-                    send_replies(&conn_context.client_sender_channel, replies);
+                    send_replies(&conn_context.client_sender_channel.0, replies);
 
                     for member in &chan_ctx.members {
                         if member == &received.connection_id {
@@ -268,7 +278,7 @@ pub fn run_server(
                         };
 
                         send_replies(
-                            &other_user.client_sender_channel,
+                            &other_user.client_sender_channel.0,
                             vec![Reply::Join {
                                 client: ctx_client.clone(),
                                 channel: channel.clone(),
@@ -281,7 +291,7 @@ pub fn run_server(
                 let now = Utc::now();
 
                 send_replies(
-                    &conn_context.client_sender_channel,
+                    &conn_context.client_sender_channel.0,
                     vec![
                         Reply::ChannelModeIs {
                             server_host: server_host.clone(),
@@ -300,7 +310,7 @@ pub fn run_server(
                 )
             }
             ClientToServerCommand::Who { mask, .. } => send_replies(
-                &conn_context.client_sender_channel,
+                &conn_context.client_sender_channel.0,
                 handle_who(mask, &server_host, ctx_nick, &srv_channels, &connections),
             ),
             ClientToServerCommand::PrivMsg { channel, message } => {
@@ -337,7 +347,7 @@ pub fn run_server(
                     };
 
                     send_replies(
-                        &connected_member.client_sender_channel,
+                        &connected_member.client_sender_channel.0,
                         vec![Reply::PrivMsg {
                             nick: sender_member.nick.clone(),
                             user: sender_member.user.clone(),
@@ -368,45 +378,39 @@ fn send_replies(sender: &Sender<Reply>, replies: Vec<Reply>) {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
+
     use super::*;
     use crate::channels::FakeChannelReceiver;
     use std::cell::RefCell;
     use std::collections::VecDeque;
+    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
     use std::sync::{
         mpsc::{self},
-        Mutex,
     };
 
-    /*
     #[test]
     pub fn server_nickcommandsent_replystormissent() {
         // Arrange
-        let mut connections = HashMap::new();
-
         let (sender, test_receiver) = mpsc::channel();
-        let connection_uuid = Uuid::new_v4();
-        connections.insert(
-            connection_uuid,
-            ConnectionContext {
-                uuid: connection_uuid,
-                client_sender_channel: sender,
-                client: None,
-                nick: None,
-                user: None,
-                real_name: None,
-                client_host: None,
-            },
-        );
-
-        let connections = Arc::new(RwLock::new(connections));
+        let connection_id = Uuid::new_v4();
 
         let mut messages = VecDeque::new();
-        messages.push_front(ClientToServerMessage {
+        messages.push_back(ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::Connected {
+                sender: ReplySender(sender),
+                client_ip: Some(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 1234))),
+            },
+            connection_id
+        });
+
+        messages.push_back(ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Nick {
                 nick: "JOE".to_string(),
             },
-            connection_uuid,
+            connection_id,
         });
 
         let receiver = FakeChannelReceiver {
@@ -421,28 +425,19 @@ mod tests {
             ping_frequency: std::time::Duration::from_secs(60),
         };
 
-        // TODO fix this test after refactor
-        /*
         // Act
-        let assert_connections = connections.clone();
         let result = run_server(&context, &receiver);
 
         // Assert
         if let Ok(()) = result {
             assert!(false)
         }
-        assert_eq!(2, receiver.receive_count.take());
+        assert_eq!(3, receiver.receive_count.take());
         // try_iter is required because the sender channel is kept alive due
         // to cloning the Arc to the connections map
         // try_iter will yield whatever is in the receiver even
         // though the sender hasn't hung up whereas iter would block
         // because the sender hasn't hung up
         assert_eq!(16, test_receiver.try_iter().count());
-
-        let dict = assert_connections.read().unwrap();
-        let conn_ctx = dict.get(&connection_uuid).unwrap();
-        assert_eq!(&Some("JOE".to_string()), &conn_ctx.nick);
-        */
     }
-    */
 }

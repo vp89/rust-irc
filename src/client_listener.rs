@@ -68,8 +68,6 @@ pub fn run_listener(
             let message = match ClientToServerMessage::from_str(
                 raw_message,
                 *connection_id,
-                &client_sender,
-                client_ip,
             ) {
                 Ok(m) => m,
                 Err(e) => {
