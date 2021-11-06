@@ -19,7 +19,7 @@ pub struct ReplySender(pub Sender<Reply>);
 // this is just implemented to keep the compiler happy
 // we will never need to do equality comparison on this
 impl PartialEq for ReplySender {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         false
     }
 }
@@ -29,7 +29,7 @@ pub enum ClientToServerCommand {
     Unhandled,
     Connected {
         sender: ReplySender,
-        client_ip: Option<SocketAddr>
+        client_ip: Option<SocketAddr>,
     },
     Nick {
         nick: String,
@@ -62,10 +62,7 @@ pub enum ClientToServerCommand {
 
 // TODO this doesnt handle NICK params
 impl ClientToServerMessage {
-    pub fn from_str(
-        s: &str,
-        connection_id: Uuid,
-    ) -> Result<Self> {
+    pub fn from_str(s: &str, connection_id: Uuid) -> Result<Self> {
         let has_source = s.starts_with(':');
         let mut words = s.split_whitespace();
 
@@ -125,9 +122,7 @@ impl ClientToServerMessage {
                     }),
                 }?;
 
-                ClientToServerCommand::Nick {
-                    nick,
-                }
+                ClientToServerCommand::Nick { nick }
             }
             "PING" => {
                 let token = match words.next() {
@@ -249,8 +244,8 @@ mod tests {
             expected_nick
         );
 
-        let message =
-            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid prefix");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid prefix");
         let actual_source = message.source;
         let actual_command = message.command;
         assert_eq!(expected_message.source, actual_source);
@@ -269,8 +264,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("NICK {}", expected_nick);
-        let message =
-            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid prefix");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid prefix");
         let actual_command = message.command;
         assert_eq!(expected_message.command, actual_command);
     }
@@ -287,8 +282,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("nick {}", expected_nick);
-        let message =
-            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid prefix");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid prefix");
         let actual_command = message.command;
         assert_eq!(expected_message.command, actual_command);
     }
@@ -305,8 +300,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("JOIN {}", expected_channel);
-        let message =
-            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 
@@ -326,8 +321,8 @@ mod tests {
         };
 
         let raw_str = &format!("JOIN {}", expected_channels.join(","));
-        let message =
-            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 
@@ -343,11 +338,10 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("WHO");
-        let message =
-            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
-
 
     #[test]
     fn message_parsing_who_only_operators_defaults_to_false() {
@@ -361,8 +355,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("WHO #heythere");
-        let message =
-            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 
@@ -378,8 +372,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("WHO #heythere o");
-        let message =
-            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 
@@ -395,8 +389,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("PRIVMSG #blah :HI. THERE? HELLO!");
-        let message =
-            ClientToServerMessage::from_str(raw_str, connection_id).expect("Failed to parse valid message");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 

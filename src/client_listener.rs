@@ -3,21 +3,19 @@ use crate::{
     replies::Reply,
     ServerContext,
 };
+use std::sync::mpsc::Sender;
 use std::{
     collections::VecDeque,
     io::{self, BufRead, ErrorKind, Read, Write},
     net::TcpStream,
     time::Instant,
 };
-use std::{net::SocketAddr, sync::mpsc::Sender};
 use uuid::Uuid;
 
 pub fn run_listener(
     connection_id: &Uuid,
     stream: &TcpStream,
     server_sender: Sender<ClientToServerMessage>,
-    client_sender: Sender<Reply>,
-    client_ip: Option<SocketAddr>,
     context: ServerContext,
 ) -> io::Result<()> {
     // connection handler just runs a loop that reads bytes off the stream
@@ -65,10 +63,7 @@ pub fn run_listener(
         for raw_message in &raw_messages {
             // TODO is there a way to clean this up so that I only pass in sender/IP on parsing
             // when I need it? Like a multi-pass parsing?
-            let message = match ClientToServerMessage::from_str(
-                raw_message,
-                *connection_id,
-            ) {
+            let message = match ClientToServerMessage::from_str(raw_message, *connection_id) {
                 Ok(m) => m,
                 Err(e) => {
                     println!("{}", e);

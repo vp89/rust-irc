@@ -10,11 +10,9 @@ mod server;
 mod util;
 
 use chrono::{DateTime, Utc};
-use replies::Reply;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::mpsc;
-use std::sync::mpsc::Sender;
 use std::{
     net::{Shutdown, TcpListener},
     thread,
@@ -74,16 +72,14 @@ fn main() -> io::Result<()> {
                         return;
                     }
 
-                    if let Err(e) = cloned_server_sender_channel.send(
-                        ClientToServerMessage {
-                            source: None,
-                            command: ClientToServerCommand::Connected {
-                                sender: ReplySender(cloned_client_sender_channel.clone()),
-                                client_ip: stream.peer_addr().ok(),
-                            },
-                            connection_id,
-                        }
-                    ) {
+                    if let Err(e) = cloned_server_sender_channel.send(ClientToServerMessage {
+                        source: None,
+                        command: ClientToServerCommand::Connected {
+                            sender: ReplySender(cloned_client_sender_channel.clone()),
+                            client_ip: stream.peer_addr().ok(),
+                        },
+                        connection_id,
+                    }) {
                         println!("Error sending connection initialization message {:?}", e)
                     };
 
@@ -91,8 +87,6 @@ fn main() -> io::Result<()> {
                         &connection_id,
                         &stream,
                         cloned_server_sender_channel,
-                        cloned_client_sender_channel,
-                        stream.peer_addr().ok(),
                         server_context,
                     ) {
                         println!("Error returned from client listener {:?}", e)

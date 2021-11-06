@@ -1,7 +1,12 @@
 use chrono::Utc;
 use std::{collections::HashMap, sync::mpsc::Sender};
 
-use crate::{ChannelContext, ConnectionContext, ServerContext, channels::ReceiverWrapper, message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender}, replies::Reply};
+use crate::{
+    channels::ReceiverWrapper,
+    message_parsing::{ClientToServerCommand, ClientToServerMessage},
+    replies::Reply,
+    ChannelContext, ConnectionContext, ServerContext,
+};
 
 use crate::handlers::who::*;
 use crate::result::Result;
@@ -18,11 +23,7 @@ pub fn run_server(
     loop {
         let received = receiver_channel.receive()?;
 
-        if let ClientToServerCommand::Connected {
-            sender,
-            client_ip,
-        } = &received.command
-        {
+        if let ClientToServerCommand::Connected { sender, client_ip } = &received.command {
             let ctx = ConnectionContext {
                 connection_id: received.connection_id,
                 client_sender_channel: sender.clone(),
@@ -34,11 +35,7 @@ pub fn run_server(
             };
             connections.insert(received.connection_id, ctx);
         }
-        if let ClientToServerCommand::Nick {
-            nick,
-            ..
-        } = &received.command
-        {
+        if let ClientToServerCommand::Nick { nick, .. } = &received.command {
             let mut conn_context = match connections.get_mut(&received.connection_id) {
                 Some(c) => c,
                 None => {
@@ -175,7 +172,7 @@ pub fn run_server(
 
         match &received.command {
             // These require modifying the connection context so we run them above to make below code easier
-            ClientToServerCommand::Connected { .. } => { }
+            ClientToServerCommand::Connected { .. } => {}
             ClientToServerCommand::User { .. } => {}
             ClientToServerCommand::Nick { .. } => {}
             ClientToServerCommand::Join { channels } => {
@@ -382,12 +379,11 @@ mod tests {
 
     use super::*;
     use crate::channels::FakeChannelReceiver;
+    use crate::message_parsing::ReplySender;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-    use std::sync::{
-        mpsc::{self},
-    };
+    use std::sync::mpsc::{self};
 
     #[test]
     pub fn server_nickcommandsent_replystormissent() {
@@ -400,9 +396,12 @@ mod tests {
             source: None,
             command: ClientToServerCommand::Connected {
                 sender: ReplySender(sender),
-                client_ip: Some(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 1234))),
+                client_ip: Some(SocketAddr::V4(SocketAddrV4::new(
+                    Ipv4Addr::new(127, 0, 0, 1),
+                    1234,
+                ))),
             },
-            connection_id
+            connection_id,
         });
 
         messages.push_back(ClientToServerMessage {
