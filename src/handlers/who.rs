@@ -1,7 +1,7 @@
 use crate::{replies::Reply, util, ChannelContext, ConnectionContext};
 use std::{
     collections::HashMap,
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4}
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
 };
 
 use uuid::Uuid;

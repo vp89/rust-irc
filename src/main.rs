@@ -16,9 +16,7 @@ use std::net::SocketAddr;
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use std::{
-    collections::HashMap,
     net::{Shutdown, TcpListener},
-    sync::{Arc, Mutex, RwLock},
     thread,
     time::Duration,
 };

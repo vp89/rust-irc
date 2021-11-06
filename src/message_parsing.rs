@@ -19,7 +19,7 @@ pub enum ClientToServerCommand {
     Nick {
         nick: String,
         sender: Sender<Reply>,
-        client_ip: Option<SocketAddr>
+        client_ip: Option<SocketAddr>,
     },
     Ping {
         token: String,
@@ -41,7 +41,7 @@ pub enum ClientToServerCommand {
     User {
         user: String,
         mode: String,
-        realname: String
+        realname: String,
     },
     Pong,
     Quit,
@@ -49,7 +49,12 @@ pub enum ClientToServerCommand {
 
 // TODO this doesnt handle NICK params
 impl ClientToServerMessage {
-    pub fn from_str(s: &str, conn_uuid: Uuid, sender: &Sender<Reply>, client_ip: Option<SocketAddr>) -> Result<Self> {
+    pub fn from_str(
+        s: &str,
+        conn_uuid: Uuid,
+        sender: &Sender<Reply>,
+        client_ip: Option<SocketAddr>,
+    ) -> Result<Self> {
         let has_source = s.starts_with(':');
         let mut words = s.split_whitespace();
 
@@ -112,7 +117,7 @@ impl ClientToServerMessage {
                 ClientToServerCommand::Nick {
                     nick,
                     sender: sender.to_owned(),
-                    client_ip: client_ip
+                    client_ip,
                 }
             }
             "PING" => {
@@ -187,7 +192,7 @@ impl ClientToServerMessage {
                 ClientToServerCommand::User {
                     user,
                     mode,
-                    realname
+                    realname,
                 }
             }
             "PONG" => ClientToServerCommand::Pong,
@@ -404,7 +409,7 @@ mod tests {
         assert_eq!(expected_message.command, message.command);
     }
     */
-    
+
     /*
     #[test]
     fn message_parsing_privmsg_channel_missing_errors() {
