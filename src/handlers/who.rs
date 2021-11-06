@@ -1,8 +1,7 @@
 use crate::{replies::Reply, util, ChannelContext, ConnectionContext};
 use std::{
     collections::HashMap,
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-    sync::RwLockReadGuard,
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4}
 };
 
 use uuid::Uuid;
@@ -12,7 +11,7 @@ pub fn handle_who(
     server_host: &str,
     nick: &str,
     srv_channels: &HashMap<String, ChannelContext>,
-    conn_read: &RwLockReadGuard<HashMap<Uuid, ConnectionContext>>,
+    conn_read: &HashMap<Uuid, ConnectionContext>,
 ) -> Vec<Reply> {
     /*
     The <mask> passed to WHO is matched against users' host, server, real
