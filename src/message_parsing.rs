@@ -10,7 +10,7 @@ use uuid::Uuid;
 pub struct ClientToServerMessage {
     pub source: Option<String>,
     pub command: ClientToServerCommand,
-    pub connection_uuid: Uuid,
+    pub connection_id: Uuid,
 }
 
 #[derive(Debug, Clone)]
@@ -51,7 +51,7 @@ pub enum ClientToServerCommand {
 impl ClientToServerMessage {
     pub fn from_str(
         s: &str,
-        conn_uuid: Uuid,
+        connection_id: Uuid,
         sender: &Sender<Reply>,
         client_ip: Option<SocketAddr>,
     ) -> Result<Self> {
@@ -203,7 +203,7 @@ impl ClientToServerMessage {
         let message = ClientToServerMessage {
             source,
             command,
-            connection_uuid: conn_uuid,
+            connection_id,
         };
 
         Ok(message)

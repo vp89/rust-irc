@@ -11,7 +11,7 @@ pub fn handle_who(
     server_host: &str,
     nick: &str,
     srv_channels: &HashMap<String, ChannelContext>,
-    conn_read: &HashMap<Uuid, ConnectionContext>,
+    connections: &HashMap<Uuid, ConnectionContext>,
 ) -> Vec<Reply> {
     /*
     The <mask> passed to WHO is matched against users' host, server, real
@@ -46,7 +46,7 @@ pub fn handle_who(
         None => {
             let empty_str = "".to_string();
             let empty_ip = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 1234));
-            for (k, v) in conn_read.iter() {
+            for (k, v) in connections.iter() {
                 let hostmask = format!(
                     "{}!{}@{}",
                     v.nick.as_ref().unwrap_or(&empty_str).clone(),
@@ -66,7 +66,7 @@ pub fn handle_who(
     let mut replies = vec![];
 
     for user in users {
-        let other_user = match conn_read.get(user) {
+        let other_user = match connections.get(user) {
             Some(c) => c,
             None => {
                 println!("Connection context not found for matched WHO user {}", user);

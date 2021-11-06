@@ -13,7 +13,7 @@ use std::{net::SocketAddr, sync::mpsc::Sender};
 use uuid::Uuid;
 
 pub fn run_listener(
-    connection_uuid: &Uuid,
+    connection_id: &Uuid,
     stream: &TcpStream,
     server_sender: Sender<ClientToServerMessage>,
     client_sender: Sender<Reply>,
@@ -67,7 +67,7 @@ pub fn run_listener(
             // when I need it? Like a multi-pass parsing?
             let message = match ClientToServerMessage::from_str(
                 raw_message,
-                *connection_uuid,
+                *connection_id,
                 &client_sender,
                 client_ip,
             ) {

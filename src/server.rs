@@ -32,7 +32,7 @@ pub fn run_server(
             let ctx_version = &server_context.version;
             let ctx_created_at = &server_context.start_time;
             let ctx = ConnectionContext {
-                uuid: received.connection_uuid,
+                connection_id: received.connection_id,
                 client_sender_channel: sender.clone(),
                 nick: Some(nick.to_string()),
                 client: Some(format!("{}!~{}@localhost", nick, nick)),
@@ -40,7 +40,7 @@ pub fn run_server(
                 real_name: None,
                 client_host: *client_ip,
             };
-            connections.insert(received.connection_uuid, ctx);
+            connections.insert(received.connection_id, ctx);
 
             send_replies(
                 sender,
@@ -143,7 +143,7 @@ pub fn run_server(
             realname,
         } = &received.command
         {
-            let mut conn_context = match connections.get_mut(&received.connection_uuid) {
+            let mut conn_context = match connections.get_mut(&received.connection_id) {
                 Some(c) => c,
                 None => {
                     continue;
@@ -154,7 +154,7 @@ pub fn run_server(
             continue;
         }
 
-        let conn_context = match connections.get(&received.connection_uuid) {
+        let conn_context = match connections.get(&received.connection_id) {
             Some(c) => c,
             None => {
                 continue;
@@ -173,14 +173,14 @@ pub fn run_server(
 
                 for channel in channels {
                     match srv_channels.get_mut(channel) {
-                        Some(c) => c.members.push(received.connection_uuid),
+                        Some(c) => c.members.push(received.connection_id),
                         None => {
                             srv_channels.insert(
                                 channel.clone(),
                                 // TODO this probably won't be right eventually
                                 // if there needs to be persisted channel ownership?
                                 ChannelContext {
-                                    members: vec![received.connection_uuid],
+                                    members: vec![received.connection_id],
                                 },
                             );
                         }
@@ -252,7 +252,7 @@ pub fn run_server(
                     send_replies(&conn_context.client_sender_channel, replies);
 
                     for member in &chan_ctx.members {
-                        if member == &received.connection_uuid {
+                        if member == &received.connection_id {
                             continue;
                         }
 
@@ -304,12 +304,12 @@ pub fn run_server(
                 handle_who(mask, &server_host, ctx_nick, &srv_channels, &connections),
             ),
             ClientToServerCommand::PrivMsg { channel, message } => {
-                let sender_member = match connections.get(&received.connection_uuid) {
+                let sender_member = match connections.get(&received.connection_id) {
                     Some(conn) => conn,
                     None => {
                         println!(
                             "Unable to find sender member {} in connections map",
-                            &received.connection_uuid
+                            &received.connection_id
                         );
                         continue;
                     }
@@ -324,7 +324,7 @@ pub fn run_server(
                 };
 
                 for member in &channel_ctx.members {
-                    if member == &received.connection_uuid {
+                    if member == &received.connection_id {
                         continue;
                     }
 

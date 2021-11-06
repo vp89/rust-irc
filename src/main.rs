@@ -53,7 +53,7 @@ fn main() -> io::Result<()> {
         match connection_attempt {
             Ok(stream) => {
                 // pass this around in messages to grab details about this connection/user
-                let connection_uuid = Uuid::new_v4();
+                let connection_id = Uuid::new_v4();
                 let (client_sender_channel, client_receiver_channel) = mpsc::channel();
                 let cloned_client_sender_channel = client_sender_channel.clone();
 
@@ -73,7 +73,7 @@ fn main() -> io::Result<()> {
                     }
 
                     if let Err(e) = client_listener::run_listener(
-                        &connection_uuid,
+                        &connection_id,
                         &stream,
                         cloned_server_sender_channel,
                         cloned_client_sender_channel,
@@ -121,7 +121,7 @@ pub struct ServerContext {
 }
 
 pub struct ConnectionContext {
-    pub uuid: Uuid,
+    pub connection_id: Uuid,
     pub client_sender_channel: Sender<Reply>,
     // TODO remove this?
     pub client: Option<String>,
