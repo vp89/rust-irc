@@ -9,15 +9,16 @@ pub fn handle_nick(
     &ctx_created_at: &DateTime<Utc>,
     conn_context: &mut ConnectionContext,
 ) -> Vec<Reply> {
-    let mut replies: Vec<Reply> = vec![];
-
     let nick = match nick {
         Some(n) => n,
         None => {
-            // TODO
-            return replies;
+            return vec![
+                Reply::ErrNoNickGiven { server_host: server_host.to_owned() }
+            ];
         }
     };
+
+    let mut replies: Vec<Reply> = vec![];
 
     conn_context.nick = Some(nick.to_string());
     conn_context.client = Some(format!("{}!~{}@localhost", nick, nick));
