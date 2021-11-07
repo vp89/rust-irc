@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::mpsc::Sender};
 
 use crate::{
     channels::ReceiverWrapper,
+    handlers::nick::handle_nick,
     message_parsing::{ClientToServerCommand, ClientToServerMessage},
     replies::Reply,
     ChannelContext, ConnectionContext, ServerContext,
@@ -42,104 +43,17 @@ pub fn run_server(
                     continue;
                 }
             };
-            conn_context.nick = Some(nick.to_string());
-            conn_context.client = Some(format!("{}!~{}@localhost", nick, nick));
 
-            let ctx_version = &server_context.version;
-            let ctx_created_at = &server_context.start_time;
-
-            send_replies(
-                &conn_context.client_sender_channel.0,
-                vec![
-                    Reply::Welcome {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                    },
-                    Reply::YourHost {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        version: ctx_version.clone(),
-                    },
-                    Reply::Created {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        created_at: *ctx_created_at,
-                    },
-                    Reply::MyInfo {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        version: ctx_version.clone(),
-                        user_modes: "r".to_string(),
-                        channel_modes: "i".to_string(),
-                    },
-                    Reply::Support {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        channel_len: 32,
-                    },
-                    Reply::LuserClient {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        visible_users: 100,
-                        invisible_users: 20,
-                        servers: 1,
-                    },
-                    Reply::LuserOp {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        operators: 1337,
-                    },
-                    Reply::LuserUnknown {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        unknown: 7,
-                    },
-                    Reply::LuserChannels {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        channels: 9999,
-                    },
-                    Reply::LuserMe {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        clients: 900,
-                        servers: 1,
-                    },
-                    Reply::LocalUsers {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        current: 845,
-                        max: 1000,
-                    },
-                    Reply::GlobalUsers {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        current: 9832,
-                        max: 23455,
-                    },
-                    Reply::StatsDLine {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        connections: 9998,
-                        clients: 9000,
-                        received: 99999,
-                    },
-                    Reply::MotdStart {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                    },
-                    // TODO proper configurable MOTD
-                    Reply::Motd {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                        line: "Foobar".to_string(),
-                    },
-                    Reply::EndOfMotd {
-                        server_host: server_host.clone(),
-                        nick: nick.clone(),
-                    },
-                ],
+            let replies = handle_nick(
+                &server_host,
+                nick,
+                &server_context.version,
+                &server_context.start_time,
+                &mut conn_context,
             );
+
+            send_replies(&conn_context.client_sender_channel.0, replies);
+
             continue;
         }
 
@@ -407,7 +321,7 @@ mod tests {
         messages.push_back(ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Nick {
-                nick: "JOE".to_string(),
+                nick: Some("JOE".to_string()),
             },
             connection_id,
         });

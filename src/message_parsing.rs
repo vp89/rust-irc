@@ -32,7 +32,7 @@ pub enum ClientToServerCommand {
         client_ip: Option<SocketAddr>,
     },
     Nick {
-        nick: String,
+        nick: Option<String>,
     },
     Ping {
         token: String,
@@ -115,12 +115,7 @@ impl ClientToServerMessage {
                 ClientToServerCommand::PrivMsg { channel, message }
             }
             "NICK" => {
-                let nick = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "nick".to_string(),
-                    }),
-                }?;
+                let nick = words.next().map(|s| s.to_owned());
 
                 ClientToServerCommand::Nick { nick }
             }
@@ -234,7 +229,7 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: Some(format!("FOO")),
             command: ClientToServerCommand::Nick {
-                nick: expected_nick.clone(),
+                nick: Some(expected_nick.clone()),
             },
             connection_id,
         };
@@ -259,7 +254,7 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Nick {
-                nick: expected_nick.clone(),
+                nick: Some(expected_nick.clone()),
             },
             connection_id,
         };
@@ -277,7 +272,7 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Nick {
-                nick: expected_nick.clone(),
+                nick: Some(expected_nick.clone()),
             },
             connection_id,
         };
