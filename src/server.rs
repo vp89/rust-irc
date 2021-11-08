@@ -35,7 +35,9 @@ pub fn run_server(
                 client_host: *client_ip,
             };
             connections.insert(received.connection_id, ctx);
+            continue;
         }
+
         if let ClientToServerCommand::Nick { nick, .. } = &received.command {
             let mut conn_context = match connections.get_mut(&received.connection_id) {
                 Some(c) => c,
