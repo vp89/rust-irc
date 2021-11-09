@@ -38,7 +38,7 @@ pub enum ClientToServerCommand {
         token: String,
     },
     Join {
-        channels: Vec<String>,
+        channels_to_join: Vec<String>,
     },
     Mode {
         channel: String,
@@ -137,8 +137,8 @@ impl ClientToServerMessage {
                     }),
                 }?;
 
-                let channels = raw_channels.split(',').map(|s| s.to_string()).collect();
-                ClientToServerCommand::Join { channels }
+                let channels_to_join = raw_channels.split(',').map(|s| s.to_string()).collect();
+                ClientToServerCommand::Join { channels_to_join }
             }
             "MODE" => {
                 let channel = match words.next() {
@@ -290,7 +290,7 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Join {
-                channels: vec![expected_channel.clone()],
+                channels_to_join: vec![expected_channel.clone()],
             },
             connection_id,
         };
@@ -310,7 +310,7 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Join {
-                channels: expected_channels.clone(),
+                channels_to_join: expected_channels.clone(),
             },
             connection_id,
         };

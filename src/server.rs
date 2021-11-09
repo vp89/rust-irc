@@ -1,13 +1,8 @@
 use chrono::Utc;
 use std::{collections::HashMap, sync::mpsc::Sender};
+use uuid::Uuid;
 
-use crate::{
-    channels::ReceiverWrapper,
-    handlers::nick::handle_nick,
-    message_parsing::{ClientToServerCommand, ClientToServerMessage},
-    replies::Reply,
-    ChannelContext, ConnectionContext, ServerContext,
-};
+use crate::{ChannelContext, ConnectionContext, ServerContext, channels::ReceiverWrapper, handlers::{join::handle_join, mode::handle_mode, nick::handle_nick, privmsg::handle_privmsg}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
 
 use crate::handlers::who::*;
 use crate::result::Result;
@@ -19,7 +14,7 @@ pub fn run_server(
     let mut connections = HashMap::new();
     let server_host = server_context.server_host.clone();
     let empty_str = &String::from("");
-    let mut srv_channels: HashMap<String, ChannelContext> = HashMap::new();
+    let mut channels: HashMap<String, ChannelContext> = HashMap::new();
 
     loop {
         let received = receiver_channel.receive()?;
@@ -54,8 +49,7 @@ pub fn run_server(
                 &mut conn_context,
             );
 
-            send_replies(&conn_context.client_sender_channel.0, replies);
-
+            send_replies(replies, &connections);
             continue;
         }
 
@@ -91,185 +85,21 @@ pub fn run_server(
             ClientToServerCommand::Connected { .. } => {}
             ClientToServerCommand::User { .. } => {}
             ClientToServerCommand::Nick { .. } => {}
-            ClientToServerCommand::Join { channels } => {
-                let now = Utc::now();
-
-                for channel in channels {
-                    match srv_channels.get_mut(channel) {
-                        Some(c) => c.members.push(received.connection_id),
-                        None => {
-                            srv_channels.insert(
-                                channel.clone(),
-                                // TODO this probably won't be right eventually
-                                // if there needs to be persisted channel ownership?
-                                ChannelContext {
-                                    members: vec![received.connection_id],
-                                },
-                            );
-                        }
-                    }
-
-                    let mut replies = vec![
-                        Reply::Join {
-                            client: ctx_client.clone(),
-                            channel: channel.clone(),
-                        },
-                        // TODO persist the channel metadata
-                        Reply::Topic {
-                            server_host: server_host.clone(),
-                            nick: ctx_nick.clone(),
-                            channel: channel.clone(),
-                            topic: "foobar topic".to_string(),
-                        },
-                        Reply::TopicWhoTime {
-                            server_host: server_host.clone(),
-                            channel: channel.clone(),
-                            nick: ctx_nick.clone(),
-                            set_at: now,
-                        },
-                    ];
-
-                    let chan_ctx = match srv_channels.get(channel) {
-                        Some(c) => c,
-                        None => {
-                            println!(
-                                "Unable for {} to join topic {} as user list not found for it",
-                                ctx_nick, channel
-                            );
-                            continue;
-                        }
-                    };
-
-                    let mut channel_users = vec![];
-
-                    for member in &chan_ctx.members {
-                        let other_user = match connections.get(member) {
-                            Some(c) => c,
-                            None => {
-                                println!(
-                                    "Connection context not found for matched channel user {}",
-                                    member
-                                );
-                                continue;
-                            }
-                        };
-
-                        if let Some(e) = &other_user.nick {
-                            channel_users.push(e.clone())
-                        }
-                    }
-
-                    replies.push(Reply::Nam {
-                        server_host: server_host.clone(),
-                        nick: ctx_nick.clone(),
-                        channel: channel.clone(),
-                        channel_users,
-                    });
-
-                    replies.push(Reply::EndOfNames {
-                        server_host: server_host.clone(),
-                        nick: ctx_nick.clone(),
-                        channel: channel.clone(),
-                    });
-
-                    send_replies(&conn_context.client_sender_channel.0, replies);
-
-                    for member in &chan_ctx.members {
-                        if member == &received.connection_id {
-                            continue;
-                        }
-
-                        let other_user = match connections.get(member) {
-                            Some(c) => c,
-                            None => {
-                                println!(
-                                    "Connection context not found for matched channel user {}",
-                                    member
-                                );
-                                continue;
-                            }
-                        };
-
-                        send_replies(
-                            &other_user.client_sender_channel.0,
-                            vec![Reply::Join {
-                                client: ctx_client.clone(),
-                                channel: channel.clone(),
-                            }],
-                        );
-                    }
-                }
+            ClientToServerCommand::Join { channels_to_join } => {
+                let replies = handle_join(&server_host, ctx_nick, ctx_client, &conn_context, &mut channels, &connections, channels_to_join);
+                send_replies(replies, &connections);
             }
             ClientToServerCommand::Mode { channel } => {
-                let now = Utc::now();
-
-                send_replies(
-                    &conn_context.client_sender_channel.0,
-                    vec![
-                        Reply::ChannelModeIs {
-                            server_host: server_host.clone(),
-                            nick: ctx_nick.clone(),
-                            channel: channel.clone(),
-                            mode_string: "+mtn1".to_string(),
-                            mode_arguments: "100".to_string(),
-                        },
-                        Reply::CreationTime {
-                            server_host: server_host.clone(),
-                            nick: ctx_nick.clone(),
-                            channel: channel.clone(),
-                            created_at: now,
-                        },
-                    ],
-                )
+                let replies = handle_mode(&server_host, ctx_nick, &channel, &conn_context);
+                send_replies(replies, &connections);
             }
-            ClientToServerCommand::Who { mask, .. } => send_replies(
-                &conn_context.client_sender_channel.0,
-                handle_who(mask, &server_host, ctx_nick, &srv_channels, &connections),
-            ),
+            ClientToServerCommand::Who { mask, .. } => {
+                let replies = handle_who(mask, &server_host, ctx_nick, &channels, &connections, &conn_context);
+                send_replies(replies, &connections);
+            }
             ClientToServerCommand::PrivMsg { channel, message } => {
-                let sender_member = match connections.get(&received.connection_id) {
-                    Some(conn) => conn,
-                    None => {
-                        println!(
-                            "Unable to find sender member {} in connections map",
-                            &received.connection_id
-                        );
-                        continue;
-                    }
-                };
-
-                let channel_ctx = match srv_channels.get(channel) {
-                    Some(c) => c,
-                    None => {
-                        println!("Unable to send message to channel {}, not found", channel);
-                        continue;
-                    }
-                };
-
-                for member in &channel_ctx.members {
-                    if member == &received.connection_id {
-                        continue;
-                    }
-
-                    let connected_member = match connections.get(member) {
-                        Some(conn) => conn,
-                        None => {
-                            println!("Unable to find member {} in connections map", member);
-                            continue;
-                        }
-                    };
-
-                    send_replies(
-                        &connected_member.client_sender_channel.0,
-                        vec![Reply::PrivMsg {
-                            nick: sender_member.nick.clone(),
-                            user: sender_member.user.clone(),
-                            client_host: sender_member.client_host,
-                            channel: channel.clone(),
-                            message: message.clone(),
-                        }],
-                    );
-                }
+                let replies = handle_privmsg(&server_host, ctx_nick, ctx_client, channel, message, &conn_context, &channels, &connections);
+                send_replies(replies, &connections);
             }
             // these won't make it here
             ClientToServerCommand::Unhandled { .. } => {}
@@ -280,11 +110,21 @@ pub fn run_server(
     }
 }
 
-fn send_replies(sender: &Sender<Reply>, replies: Vec<Reply>) {
-    for reply in replies {
-        if let Err(e) = sender.send(reply) {
-            println!("Error sending replies {:?}", e);
-            return;
+fn send_replies(replies_per_user: HashMap<Uuid, Vec<Reply>>, connections: &HashMap<Uuid, ConnectionContext>) {
+    for (connection_id, replies) in replies_per_user {
+        let sender = match connections.get(&connection_id) {
+            Some(ctx) => &ctx.client_sender_channel.0,
+            None => {
+                // TODO
+                continue;
+            }
+        };
+
+        for reply in replies {
+            if let Err(e) = sender.send(reply) {
+                println!("Error sending replies {:?}", e);
+                return;
+            }
         }
     }
 }

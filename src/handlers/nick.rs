@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use crate::{replies::Reply, ConnectionContext};
 
@@ -8,16 +11,20 @@ pub fn handle_nick(
     ctx_version: &str,
     &ctx_created_at: &DateTime<Utc>,
     conn_context: &mut ConnectionContext,
-) -> Vec<Reply> {
+) -> HashMap<Uuid, Vec<Reply>> {
     let nick = match nick {
         Some(n) => n,
         None => {
-            return vec![
-                Reply::ErrNoNickGiven { server_host: server_host.to_owned() }
-            ];
+            let mut map = HashMap::new();
+            map.insert(
+                conn_context.connection_id,
+                vec![ Reply::ErrNoNickGiven { server_host: server_host.to_owned() } ]
+            );
+            return map; 
         }
     };
 
+    let mut map = HashMap::new();
     let mut replies: Vec<Reply> = vec![];
 
     conn_context.nick = Some(nick.to_string());
@@ -111,5 +118,10 @@ pub fn handle_nick(
         nick: nick.clone(),
     });
 
-    replies
+    map.insert(
+        conn_context.connection_id,
+        replies
+    );
+    
+    map
 }

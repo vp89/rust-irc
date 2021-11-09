@@ -10,9 +10,10 @@ pub fn handle_who(
     mask: &Option<String>,
     server_host: &str,
     nick: &str,
-    srv_channels: &HashMap<String, ChannelContext>,
+    channels: &HashMap<String, ChannelContext>,
     connections: &HashMap<Uuid, ConnectionContext>,
-) -> Vec<Reply> {
+    conn_context: &ConnectionContext
+) -> HashMap<Uuid, Vec<Reply>> {
     /*
     The <mask> passed to WHO is matched against users' host, server, real
     name and nickname if the channel <mask> cannot be found.
@@ -20,11 +21,12 @@ pub fn handle_who(
     let mask = match mask {
         Some(m) => m,
         None => {
-            return vec![Reply::ErrNeedMoreParams {
-                server_host: server_host.to_string(),
-                nick: nick.to_string(),
-                command: "WHO".to_string(),
-            }]
+            let mut map = HashMap::new();
+            map.insert(
+                conn_context.connection_id,
+                vec![ Reply::ErrNeedMoreParams { server_host: server_host.to_string(), nick: nick.to_string(), command: "WHO".to_string() } ]
+            );
+            return map;
         }
     };
 
@@ -34,7 +36,7 @@ pub fn handle_who(
     // The <mask> passed to WHO is matched against users' host, server, real
     // name and nickname if the channel <mask> cannot be found.
 
-    let chan_ctx = srv_channels.get(mask);
+    let chan_ctx = channels.get(mask);
 
     let mut members = vec![];
 
@@ -63,7 +65,8 @@ pub fn handle_who(
         }
     };
 
-    let mut replies = vec![];
+    let mut map = HashMap::new();
+    let mut replies: Vec<Reply> = vec![];
 
     for user in users {
         let other_user = match connections.get(user) {
@@ -84,7 +87,7 @@ pub fn handle_who(
             server_host: server_host.to_string(),
             nick: nick.to_string(),
             channel: match is_mask_channel {
-                true => mask.clone(),
+                true => mask.to_string(),
                 false => "*".to_string(),
             },
             other_user: other_user.user.as_ref().unwrap_or(&empty_str).clone(),
@@ -105,5 +108,10 @@ pub fn handle_who(
         mask: mask.to_string(),
     });
 
-    replies
+    map.insert(
+        conn_context.connection_id,
+        replies
+    );
+
+    map
 }
