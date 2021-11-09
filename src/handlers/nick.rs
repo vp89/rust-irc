@@ -18,9 +18,11 @@ pub fn handle_nick(
             let mut map = HashMap::new();
             map.insert(
                 conn_context.connection_id,
-                vec![ Reply::ErrNoNickGiven { server_host: server_host.to_owned() } ]
+                vec![Reply::ErrNoNickGiven {
+                    server_host: server_host.to_owned(),
+                }],
             );
-            return map; 
+            return map;
         }
     };
 
@@ -118,10 +120,7 @@ pub fn handle_nick(
         nick: nick.clone(),
     });
 
-    map.insert(
-        conn_context.connection_id,
-        replies
-    );
-    
+    map.insert(conn_context.connection_id, replies);
+
     map
 }

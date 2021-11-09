@@ -1,13 +1,11 @@
-use std::{collections::HashMap, net::SocketAddr};
+use std::collections::HashMap;
 
 use uuid::Uuid;
 
-use crate::{ChannelContext, ConnectionContext, replies::Reply};
+use crate::{replies::Reply, ChannelContext, ConnectionContext};
 
 pub fn handle_privmsg(
-    server_host: &str,
     nick: &str,
-    client: &str,
     channel: &str,
     message: &str,
     conn_context: &ConnectionContext,
@@ -44,7 +42,7 @@ pub fn handle_privmsg(
                 client_host: conn_context.client_host,
                 channel: channel.to_string(),
                 message: message.to_string(),
-            }]
+            }],
         );
     }
 

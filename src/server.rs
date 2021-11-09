@@ -1,8 +1,13 @@
-use chrono::Utc;
-use std::{collections::HashMap, sync::mpsc::Sender};
+use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::{ChannelContext, ConnectionContext, ServerContext, channels::ReceiverWrapper, handlers::{join::handle_join, mode::handle_mode, nick::handle_nick, privmsg::handle_privmsg}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
+use crate::{
+    channels::ReceiverWrapper,
+    handlers::{join::handle_join, mode::handle_mode, nick::handle_nick, privmsg::handle_privmsg},
+    message_parsing::{ClientToServerCommand, ClientToServerMessage},
+    replies::Reply,
+    ChannelContext, ConnectionContext, ServerContext,
+};
 
 use crate::handlers::who::*;
 use crate::result::Result;
@@ -86,19 +91,41 @@ pub fn run_server(
             ClientToServerCommand::User { .. } => {}
             ClientToServerCommand::Nick { .. } => {}
             ClientToServerCommand::Join { channels_to_join } => {
-                let replies = handle_join(&server_host, ctx_nick, ctx_client, &conn_context, &mut channels, &connections, channels_to_join);
+                let replies = handle_join(
+                    &server_host,
+                    ctx_nick,
+                    ctx_client,
+                    conn_context,
+                    &mut channels,
+                    &connections,
+                    channels_to_join,
+                );
                 send_replies(replies, &connections);
             }
             ClientToServerCommand::Mode { channel } => {
-                let replies = handle_mode(&server_host, ctx_nick, &channel, &conn_context);
+                let replies = handle_mode(&server_host, ctx_nick, channel, conn_context);
                 send_replies(replies, &connections);
             }
             ClientToServerCommand::Who { mask, .. } => {
-                let replies = handle_who(mask, &server_host, ctx_nick, &channels, &connections, &conn_context);
+                let replies = handle_who(
+                    mask,
+                    &server_host,
+                    ctx_nick,
+                    &channels,
+                    &connections,
+                    conn_context,
+                );
                 send_replies(replies, &connections);
             }
             ClientToServerCommand::PrivMsg { channel, message } => {
-                let replies = handle_privmsg(&server_host, ctx_nick, ctx_client, channel, message, &conn_context, &channels, &connections);
+                let replies = handle_privmsg(
+                    ctx_nick,
+                    channel,
+                    message,
+                    conn_context,
+                    &channels,
+                    &connections,
+                );
                 send_replies(replies, &connections);
             }
             // these won't make it here
@@ -110,7 +137,10 @@ pub fn run_server(
     }
 }
 
-fn send_replies(replies_per_user: HashMap<Uuid, Vec<Reply>>, connections: &HashMap<Uuid, ConnectionContext>) {
+fn send_replies(
+    replies_per_user: HashMap<Uuid, Vec<Reply>>,
+    connections: &HashMap<Uuid, ConnectionContext>,
+) {
     for (connection_id, replies) in replies_per_user {
         let sender = match connections.get(&connection_id) {
             Some(ctx) => &ctx.client_sender_channel.0,

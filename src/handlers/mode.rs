@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::Utc;
 use uuid::Uuid;
 
-use crate::{ConnectionContext, replies::Reply};
+use crate::{replies::Reply, ConnectionContext};
 
 pub fn handle_mode(
     server_host: &str,
@@ -27,10 +27,7 @@ pub fn handle_mode(
             created_at: Utc::now(),
         },
     ];
-    map.insert(
-        conn_context.connection_id,
-        replies
-    );
-    
+    map.insert(conn_context.connection_id, replies);
+
     map
 }

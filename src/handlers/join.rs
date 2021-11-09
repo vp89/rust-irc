@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::Utc;
 use uuid::Uuid;
 
-use crate::{ChannelContext, ConnectionContext, replies::Reply};
+use crate::{replies::Reply, ChannelContext, ConnectionContext};
 
 pub fn handle_join(
     server_host: &str,
@@ -12,7 +12,7 @@ pub fn handle_join(
     conn_context: &ConnectionContext,
     channels: &mut HashMap<String, ChannelContext>,
     connections: &HashMap<Uuid, ConnectionContext>,
-    channels_to_join: &Vec<String>,
+    channels_to_join: &[String],
 ) -> HashMap<Uuid, Vec<Reply>> {
     let now = Utc::now();
     let mut map = HashMap::new();
@@ -115,7 +115,10 @@ pub fn handle_join(
 
             map.insert(
                 other_user.connection_id,
-                vec![ Reply::Join { client: client.to_string(), channel: channel.clone() } ]
+                vec![Reply::Join {
+                    client: client.to_string(),
+                    channel: channel.clone(),
+                }],
             );
         }
     }

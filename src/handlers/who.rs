@@ -12,7 +12,7 @@ pub fn handle_who(
     nick: &str,
     channels: &HashMap<String, ChannelContext>,
     connections: &HashMap<Uuid, ConnectionContext>,
-    conn_context: &ConnectionContext
+    conn_context: &ConnectionContext,
 ) -> HashMap<Uuid, Vec<Reply>> {
     /*
     The <mask> passed to WHO is matched against users' host, server, real
@@ -24,7 +24,11 @@ pub fn handle_who(
             let mut map = HashMap::new();
             map.insert(
                 conn_context.connection_id,
-                vec![ Reply::ErrNeedMoreParams { server_host: server_host.to_string(), nick: nick.to_string(), command: "WHO".to_string() } ]
+                vec![Reply::ErrNeedMoreParams {
+                    server_host: server_host.to_string(),
+                    nick: nick.to_string(),
+                    command: "WHO".to_string(),
+                }],
             );
             return map;
         }
@@ -108,10 +112,7 @@ pub fn handle_who(
         mask: mask.to_string(),
     });
 
-    map.insert(
-        conn_context.connection_id,
-        replies
-    );
+    map.insert(conn_context.connection_id, replies);
 
     map
 }

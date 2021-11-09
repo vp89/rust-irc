@@ -168,8 +168,8 @@ pub enum Reply {
         command: String,
     },
     ErrNoNickGiven {
-        server_host: String
-    }
+        server_host: String,
+    },
 }
 
 impl Display for Reply {
@@ -465,7 +465,9 @@ impl Display for Reply {
                     server_host, nick, command
                 )
             }
-            Reply::ErrNoNickGiven { server_host }=> write!(f, "{} 431 :No nickname given", server_host)
+            Reply::ErrNoNickGiven { server_host } => {
+                write!(f, "{} 431 :No nickname given", server_host)
+            }
         }
     }
 }
