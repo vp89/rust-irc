@@ -1,13 +1,7 @@
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::{
-    channels::ReceiverWrapper,
-    handlers::{join::handle_join, mode::handle_mode, nick::handle_nick, privmsg::handle_privmsg},
-    message_parsing::{ClientToServerCommand, ClientToServerMessage},
-    replies::Reply,
-    ChannelContext, ConnectionContext, ServerContext,
-};
+use crate::{ChannelContext, ConnectionContext, ServerContext, channels::ReceiverWrapper, handlers::{join::handle_join, mode::handle_mode, nick::handle_nick, privmsg::handle_privmsg, quit::handle_quit}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
 
 use crate::handlers::who::*;
 use crate::result::Result;
@@ -132,7 +126,10 @@ pub fn run_server(
             ClientToServerCommand::Unhandled { .. } => {}
             ClientToServerCommand::Ping { .. } => {}
             ClientToServerCommand::Pong {} => {}
-            ClientToServerCommand::Quit {} => {}
+            ClientToServerCommand::Quit { message } => {
+                let replies = handle_quit(message, &mut channels, &connections, conn_context);
+                send_replies(replies, &connections);
+            }
         };
     }
 }
@@ -161,6 +158,7 @@ fn send_replies(
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
     use uuid::Uuid;
 
     use super::*;

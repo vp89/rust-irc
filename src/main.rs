@@ -10,6 +10,7 @@ mod server;
 mod util;
 
 use chrono::{DateTime, Utc};
+use std::collections::HashSet;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::mpsc;
@@ -141,5 +142,5 @@ pub struct ConnectionContext {
 }
 
 pub struct ChannelContext {
-    members: Vec<Uuid>,
+    members: HashSet<Uuid>,
 }

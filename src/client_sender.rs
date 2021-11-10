@@ -22,4 +22,6 @@ pub fn run_sender(receiver: Receiver<Reply>, write_handle: &mut TcpStream) -> Re
             println!("Error flushing write handle {:?}", e);
         }
     }
+
+    println!("ENDING LOOP");
 }

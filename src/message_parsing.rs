@@ -57,7 +57,9 @@ pub enum ClientToServerCommand {
         realname: String,
     },
     Pong,
-    Quit,
+    Quit {
+        message: Option<String>
+    },
 }
 
 // TODO this doesnt handle NICK params
@@ -195,7 +197,11 @@ impl ClientToServerMessage {
                 }
             }
             "PONG" => ClientToServerCommand::Pong,
-            "QUIT" => ClientToServerCommand::Quit,
+            "QUIT" => {
+                let message = words.next().map(|s| s.to_string() );
+
+                ClientToServerCommand::Quit { message }
+            },
             _ => ClientToServerCommand::Unhandled,
         };
 

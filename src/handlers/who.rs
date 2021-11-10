@@ -1,8 +1,5 @@
 use crate::{replies::Reply, util, ChannelContext, ConnectionContext};
-use std::{
-    collections::HashMap,
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-};
+use std::{collections::{HashMap, HashSet}, net::{Ipv4Addr, SocketAddr, SocketAddrV4}};
 
 use uuid::Uuid;
 
@@ -42,7 +39,7 @@ pub fn handle_who(
 
     let chan_ctx = channels.get(mask);
 
-    let mut members = vec![];
+    let mut members = HashSet::new();
 
     let users = match chan_ctx {
         Some(c) => {
@@ -61,7 +58,7 @@ pub fn handle_who(
                 );
 
                 if util::match_mask(&hostmask, mask) {
-                    members.push(*k);
+                    members.insert(*k);
                 }
             }
 

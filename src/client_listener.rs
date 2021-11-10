@@ -89,8 +89,11 @@ pub fn run_listener(
                     last_pong = Instant::now();
                     waiting_for_pong = false;
                 }
-                ClientToServerCommand::Quit => {
-                    // TODO should this send something to the server worker?
+                ClientToServerCommand::Quit { .. }=> {
+                    if let Err(e) = server_sender.send(message.clone()) {
+                        println!("Error forwarding message to server {:?}", e);
+                    }
+
                     return Ok(());
                 }
                 _ => {

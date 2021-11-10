@@ -162,6 +162,12 @@ pub enum Reply {
         channel: String,
         message: String,
     },
+    Quit {
+        client_host: Option<SocketAddr>,
+        nick: Option<String>,
+        user: Option<String>,
+        message: String,
+    },
     ErrNeedMoreParams {
         server_host: String,
         nick: String,
@@ -453,6 +459,23 @@ impl Display for Reply {
                 }
 
                 write!(f, "{} PRIVMSG {} :{}", prefix, channel, message)
+            }
+            Reply::Quit { nick, user, client_host, message } => {
+                // TODO this isnt strictly quite right
+                let mut prefix = format!("");
+                if let Some(n) = nick {
+                    prefix.push_str(&format!(":{}", &n.to_string()));
+
+                    if let Some(u) = user {
+                        prefix.push_str(&format!("!{}", u))
+                    }
+
+                    if let Some(ch) = client_host {
+                        prefix.push_str(&format!("@{}", &ch.to_string()))
+                    }
+                }
+
+                write!(f, "{} QUIT :{}", prefix, message)
             }
             Reply::ErrNeedMoreParams {
                 server_host,

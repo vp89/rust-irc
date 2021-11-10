@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::Utc;
 use uuid::Uuid;
@@ -19,14 +19,19 @@ pub fn handle_join(
 
     for channel in channels_to_join {
         match channels.get_mut(channel) {
-            Some(c) => c.members.push(conn_context.connection_id),
+            Some(c) => {
+                c.members.insert(conn_context.connection_id);
+            },
             None => {
+                let mut members = HashSet::new();
+                members.insert(conn_context.connection_id);
+
                 channels.insert(
                     channel.clone(),
                     // TODO this probably won't be right eventually
                     // if there needs to be persisted channel ownership?
                     ChannelContext {
-                        members: vec![conn_context.connection_id],
+                        members,
                     },
                 );
             }
