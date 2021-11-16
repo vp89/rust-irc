@@ -69,6 +69,13 @@ pub fn run_server(
             continue;
         }
 
+        if let ClientToServerCommand::Quit { message } = &received.command {
+            let replies = {
+                handle_quit(message, &mut channels, &mut connections, received.connection_id)
+            };
+            send_replies(replies, &connections);
+        }
+
         let conn_context = match connections.get(&received.connection_id) {
             Some(c) => c,
             None => {
@@ -126,10 +133,7 @@ pub fn run_server(
             ClientToServerCommand::Unhandled { .. } => {}
             ClientToServerCommand::Ping { .. } => {}
             ClientToServerCommand::Pong {} => {}
-            ClientToServerCommand::Quit { message } => {
-                let replies = handle_quit(message, &mut channels, &connections, conn_context);
-                send_replies(replies, &connections);
-            }
+            ClientToServerCommand::Quit { .. } => {}
         };
     }
 }

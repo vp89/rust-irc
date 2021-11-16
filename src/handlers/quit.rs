@@ -6,9 +6,16 @@ use crate::{ChannelContext, ConnectionContext, replies::Reply};
 pub fn handle_quit(
     message: &Option<String>,
     channels: &mut HashMap<String, ChannelContext>,
-    connections: &HashMap<Uuid, ConnectionContext>,
-    conn_context: &ConnectionContext,
+    connections: &mut HashMap<Uuid, ConnectionContext>,
+    connection_id: Uuid,
 ) -> HashMap<Uuid, Vec<Reply>> {
+    let conn_context = match connections.get(&connection_id) {
+        Some(c) => c,
+        None => {
+            return HashMap::new();
+        }
+    };
+
     let mut map = HashMap::new();
     let message = match message {
         Some(m) => m.to_string(),
@@ -17,9 +24,11 @@ pub fn handle_quit(
 
     for channel in channels {
         if !channel.1.members.remove(&conn_context.connection_id) {
+            println!("UNABLE TO REMOVE {} FROM CHANNEL {}", &conn_context.nick.as_ref().unwrap(), channel.0);
             continue;
         }
 
+        println!("Removed {} from {} channel", conn_context.nick.as_ref().unwrap(), channel.0);
         println!("{} channel members remaining in {}", channel.1.members.len(), channel.0);
 
         for member in &channel.1.members {
@@ -29,17 +38,36 @@ pub fn handle_quit(
                         *member,
                         vec![
                             Reply::Quit {
-                                client_host: c.client_host.clone(),
-                                nick: c.nick.clone(),
-                                user: c.user.clone(),
+                                connection_id: connection_id.clone(),
+                                client_host: conn_context.client_host.clone(),
+                                nick: conn_context.nick.clone(),
+                                user: conn_context.user.clone(),
                                 message: message.to_string()
                             }
                         ]
                     );
                 },
-                None => { /* TODO */ }
+                None => { }
             }
         }
+    }
+
+    map.insert(
+        connection_id,
+        vec![
+            Reply::Quit {
+                connection_id: connection_id.clone(),
+                client_host: conn_context.client_host.clone(),
+                nick: conn_context.nick.clone(),
+                user: conn_context.user.clone(),
+                message: message.to_string()
+            }
+        ]
+    );
+
+    if connections.remove(&connection_id).is_none() {
+        println!("UNABLE TO REMOVE {} CONNECTION FROM SERVER", &connection_id);
+        return HashMap::new();
     }
     
     map

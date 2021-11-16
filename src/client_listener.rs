@@ -94,6 +94,7 @@ pub fn run_listener(
                         println!("Error forwarding message to server {:?}", e);
                     }
 
+                    println!("ENDING LISTENER LOOP FOR {}", connection_id);
                     return Ok(());
                 }
                 _ => {

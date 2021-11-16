@@ -61,7 +61,7 @@ fn main() -> io::Result<()> {
                 let mut write_handle = stream.try_clone()?;
                 sender_handles.push(thread::spawn(move || {
                     if let Err(e) =
-                        client_sender::run_sender(client_receiver_channel, &mut write_handle)
+                        client_sender::run_sender(client_receiver_channel, &mut write_handle, &connection_id)
                     {
                         println!("Error returned from client sender {:?}", e)
                     }
