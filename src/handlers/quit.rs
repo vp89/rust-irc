@@ -64,11 +64,6 @@ pub fn handle_quit(
             }
         ]
     );
-
-    if connections.remove(&connection_id).is_none() {
-        println!("UNABLE TO REMOVE {} CONNECTION FROM SERVER", &connection_id);
-        return HashMap::new();
-    }
     
     map
 }

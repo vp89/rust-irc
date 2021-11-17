@@ -27,6 +27,7 @@ impl PartialEq for ReplySender {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClientToServerCommand {
     Unhandled,
+    Disconnected,
     Connected {
         sender: ReplySender,
         client_ip: Option<SocketAddr>,

@@ -49,7 +49,8 @@ fn main() -> io::Result<()> {
 
     for connection_attempt in listener.incoming() {
         let server_context = context.clone();
-        let cloned_server_sender_channel = sender_channel.clone();
+        let cloned_server_sender_channel_listener = sender_channel.clone();
+        let cloned_server_sender_channel_sender = sender_channel.clone();
 
         match connection_attempt {
             Ok(stream) => {
@@ -65,6 +66,12 @@ fn main() -> io::Result<()> {
                     {
                         println!("Error returned from client sender {:?}", e)
                     }
+
+                    cloned_server_sender_channel_sender.send(ClientToServerMessage {
+                        source: None,
+                        command: ClientToServerCommand::Disconnected,
+                        connection_id
+                    });
                 }));
 
                 listener_handles.push(thread::spawn(move || {
@@ -73,7 +80,7 @@ fn main() -> io::Result<()> {
                         return;
                     }
 
-                    if let Err(e) = cloned_server_sender_channel.send(ClientToServerMessage {
+                    if let Err(e) = cloned_server_sender_channel_listener.send(ClientToServerMessage {
                         source: None,
                         command: ClientToServerCommand::Connected {
                             sender: ReplySender(cloned_client_sender_channel.clone()),
@@ -87,7 +94,7 @@ fn main() -> io::Result<()> {
                     if let Err(e) = client_listener::run_listener(
                         &connection_id,
                         &stream,
-                        cloned_server_sender_channel,
+                        cloned_server_sender_channel_listener,
                         server_context,
                     ) {
                         println!("Error returned from client listener {:?}", e)

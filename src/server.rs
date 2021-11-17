@@ -74,6 +74,19 @@ pub fn run_server(
                 handle_quit(message, &mut channels, &mut connections, received.connection_id)
             };
             send_replies(replies, &connections);
+            continue;
+        }
+
+        if let ClientToServerCommand::Disconnected = &received.command {
+            match connections.remove(&received.connection_id) {
+                Some(_) => {
+                    println!("REMOVED CONNECTION {}. {} users now connected", &received.connection_id, connections.len());
+                },
+                None => {
+                    println!("UNABLE TO REMOVE CONNECTION SHUTDOWN {}", &received.connection_id);
+                }
+            }
+            continue;
         }
 
         let conn_context = match connections.get(&received.connection_id) {
@@ -89,6 +102,7 @@ pub fn run_server(
         match &received.command {
             // These require modifying the connection context so we run them above to make below code easier
             ClientToServerCommand::Connected { .. } => {}
+            ClientToServerCommand::Disconnected => {}
             ClientToServerCommand::User { .. } => {}
             ClientToServerCommand::Nick { .. } => {}
             ClientToServerCommand::Join { channels_to_join } => {
