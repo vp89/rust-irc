@@ -11,13 +11,13 @@ pub fn handle_privmsg(
     conn_context: &ConnectionContext,
     channels: &HashMap<String, ChannelContext>,
     connections: &HashMap<Uuid, ConnectionContext>,
-) -> HashMap<Uuid, Vec<Reply>> {
+) -> Option<HashMap<Uuid, Vec<Reply>>> {
     let mut map = HashMap::new();
     let channel_ctx = match channels.get(channel) {
         Some(c) => c,
         None => {
             println!("Unable to send message to channel {}, not found", channel);
-            return map;
+            return None;
         }
     };
 
@@ -46,5 +46,5 @@ pub fn handle_privmsg(
         );
     }
 
-    map
+    Some(map)
 }

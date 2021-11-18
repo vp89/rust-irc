@@ -42,9 +42,7 @@ pub fn run_server(
         let ctx_client = conn_context.client.as_ref().unwrap_or(empty_str);
         let ctx_nick = conn_context.nick.as_ref().unwrap_or(empty_str);
 
-        match &received.command {
-            // These require modifying the connection context so we run them above to make below code easier
-            ClientToServerCommand::Connected { .. } => {}
+        let replies = match &received.command {
             ClientToServerCommand::Disconnected => {
                 match connections.remove(&received.connection_id) {
                     Some(_) => {
@@ -54,6 +52,7 @@ pub fn run_server(
                         println!("UNABLE TO REMOVE CONNECTION SHUTDOWN {}", &received.connection_id);
                     }
                 }
+                None
             }
             ClientToServerCommand::User { user,
                 mode: _,
@@ -66,6 +65,7 @@ pub fn run_server(
                 };
                 conn_context.user = Some(user.to_string());
                 conn_context.real_name = Some(realname.trim_start_matches(':').to_string());
+                None
             }
             ClientToServerCommand::Nick { nick, .. } => {
                 let mut conn_context = match connections.get_mut(&received.connection_id) {
@@ -75,18 +75,16 @@ pub fn run_server(
                     }
                 };
     
-                let replies = handle_nick(
+                handle_nick(
                     &server_host,
                     nick,
                     &server_context.version,
                     &server_context.start_time,
                     &mut conn_context,
-                );
-    
-                send_replies(replies, &connections);
+                )
             }
             ClientToServerCommand::Join { channels_to_join } => {
-                let replies = handle_join(
+                handle_join(
                     &server_host,
                     ctx_nick,
                     ctx_client,
@@ -94,46 +92,39 @@ pub fn run_server(
                     &mut channels,
                     &connections,
                     channels_to_join,
-                );
-                send_replies(replies, &connections);
+                )
             }
-            ClientToServerCommand::Mode { channel } => {
-                let replies = handle_mode(&server_host, ctx_nick, channel, conn_context);
-                send_replies(replies, &connections);
-            }
+            ClientToServerCommand::Mode { channel } => handle_mode(&server_host, ctx_nick, channel, conn_context),
             ClientToServerCommand::Who { mask, .. } => {
-                let replies = handle_who(
+                handle_who(
                     mask,
                     &server_host,
                     ctx_nick,
                     &channels,
                     &connections,
                     conn_context,
-                );
-                send_replies(replies, &connections);
+                )
             }
             ClientToServerCommand::PrivMsg { channel, message } => {
-                let replies = handle_privmsg(
+                handle_privmsg(
                     ctx_nick,
                     channel,
                     message,
                     conn_context,
                     &channels,
                     &connections,
-                );
-                send_replies(replies, &connections);
+                )
             }
-            ClientToServerCommand::Quit { message } => {
-                let replies = {
-                    handle_quit(message, &mut channels, &connections, received.connection_id)
-                };
-                send_replies(replies, &connections);
-            }
-            // these won't make it here
-            ClientToServerCommand::Unhandled { .. } => {}
-            ClientToServerCommand::Ping { .. } => {}
-            ClientToServerCommand::Pong {} => {}
+            ClientToServerCommand::Quit { message } => handle_quit(message, &mut channels, &connections, received.connection_id),
+            ClientToServerCommand::Connected { .. } => { None }
+            ClientToServerCommand::Unhandled { .. } => { None }
+            ClientToServerCommand::Ping { .. } => { None }
+            ClientToServerCommand::Pong {} => { None }
         };
+
+        if let Some(replies) = replies {
+            send_replies(replies, &connections)
+        }
     }
 }
 

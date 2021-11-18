@@ -8,11 +8,11 @@ pub fn handle_quit(
     channels: &mut HashMap<String, ChannelContext>,
     connections: &HashMap<Uuid, ConnectionContext>,
     connection_id: Uuid,
-) -> HashMap<Uuid, Vec<Reply>> {
+) -> Option<HashMap<Uuid, Vec<Reply>>> {
     let conn_context = match connections.get(&connection_id) {
         Some(c) => c,
         None => {
-            return HashMap::new();
+            return None;
         }
     };
 
@@ -65,5 +65,5 @@ pub fn handle_quit(
         ]
     );
     
-    map
+    Some(map)
 }

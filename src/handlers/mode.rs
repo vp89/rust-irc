@@ -10,7 +10,7 @@ pub fn handle_mode(
     nick: &str,
     channel: &str,
     conn_context: &ConnectionContext,
-) -> HashMap<Uuid, Vec<Reply>> {
+) -> Option<HashMap<Uuid, Vec<Reply>>> {
     let mut map = HashMap::new();
     let replies = vec![
         Reply::ChannelModeIs {
@@ -29,5 +29,5 @@ pub fn handle_mode(
     ];
     map.insert(conn_context.connection_id, replies);
 
-    map
+    Some(map)
 }

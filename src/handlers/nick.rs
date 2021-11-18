@@ -11,7 +11,7 @@ pub fn handle_nick(
     ctx_version: &str,
     &ctx_created_at: &DateTime<Utc>,
     conn_context: &mut ConnectionContext,
-) -> HashMap<Uuid, Vec<Reply>> {
+) -> Option<HashMap<Uuid, Vec<Reply>>> {
     let nick = match nick {
         Some(n) => n,
         None => {
@@ -22,7 +22,7 @@ pub fn handle_nick(
                     server_host: server_host.to_owned(),
                 }],
             );
-            return map;
+            return Some(map);
         }
     };
 
@@ -122,5 +122,5 @@ pub fn handle_nick(
 
     map.insert(conn_context.connection_id, replies);
 
-    map
+    Some(map)
 }

@@ -13,7 +13,7 @@ pub fn handle_join(
     channels: &mut HashMap<String, ChannelContext>,
     connections: &HashMap<Uuid, ConnectionContext>,
     channels_to_join: &[String],
-) -> HashMap<Uuid, Vec<Reply>> {
+) -> Option<HashMap<Uuid, Vec<Reply>>> {
     let now = Utc::now();
     let mut map = HashMap::new();
 
@@ -128,5 +128,5 @@ pub fn handle_join(
         }
     }
 
-    map
+    Some(map)
 }

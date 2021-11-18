@@ -10,7 +10,7 @@ pub fn handle_who(
     channels: &HashMap<String, ChannelContext>,
     connections: &HashMap<Uuid, ConnectionContext>,
     conn_context: &ConnectionContext,
-) -> HashMap<Uuid, Vec<Reply>> {
+) -> Option<HashMap<Uuid, Vec<Reply>>> {
     /*
     The <mask> passed to WHO is matched against users' host, server, real
     name and nickname if the channel <mask> cannot be found.
@@ -27,7 +27,7 @@ pub fn handle_who(
                     command: "WHO".to_string(),
                 }],
             );
-            return map;
+            return Some(map);
         }
     };
 
@@ -111,5 +111,5 @@ pub fn handle_who(
 
     map.insert(conn_context.connection_id, replies);
 
-    map
+    Some(map)
 }
