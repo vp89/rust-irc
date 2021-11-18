@@ -89,12 +89,14 @@ pub fn run_listener(
                     last_pong = Instant::now();
                     waiting_for_pong = false;
                 }
-                ClientToServerCommand::Quit { .. }=> {
+                // If client is quitting, stop this thread but before that pass the message
+                // down to the server so it can tell other clients of the QUIT and perform
+                // any other necessary shutdown work
+                ClientToServerCommand::Quit { .. } => {
                     if let Err(e) = server_sender.send(message.clone()) {
                         println!("Error forwarding message to server {:?}", e);
                     }
 
-                    println!("ENDING LISTENER LOOP FOR {}", connection_id);
                     return Ok(());
                 }
                 _ => {
