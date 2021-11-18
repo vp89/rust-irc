@@ -32,55 +32,6 @@ pub fn run_server(
             continue;
         }
 
-        if let ClientToServerCommand::Nick { nick, .. } = &received.command {
-            let mut conn_context = match connections.get_mut(&received.connection_id) {
-                Some(c) => c,
-                None => {
-                    continue;
-                }
-            };
-
-            let replies = handle_nick(
-                &server_host,
-                nick,
-                &server_context.version,
-                &server_context.start_time,
-                &mut conn_context,
-            );
-
-            send_replies(replies, &connections);
-            continue;
-        }
-
-        if let ClientToServerCommand::User {
-            user,
-            mode: _,
-            realname,
-        } = &received.command
-        {
-            let mut conn_context = match connections.get_mut(&received.connection_id) {
-                Some(c) => c,
-                None => {
-                    continue;
-                }
-            };
-            conn_context.user = Some(user.to_string());
-            conn_context.real_name = Some(realname.trim_start_matches(':').to_string());
-            continue;
-        }
-
-        if let ClientToServerCommand::Disconnected = &received.command {
-            match connections.remove(&received.connection_id) {
-                Some(_) => {
-                    println!("REMOVED CONNECTION {}. {} users now connected", &received.connection_id, connections.len());
-                },
-                None => {
-                    println!("UNABLE TO REMOVE CONNECTION SHUTDOWN {}", &received.connection_id);
-                }
-            }
-            continue;
-        }
-
         let conn_context = match connections.get(&received.connection_id) {
             Some(c) => c,
             None => {
@@ -94,9 +45,46 @@ pub fn run_server(
         match &received.command {
             // These require modifying the connection context so we run them above to make below code easier
             ClientToServerCommand::Connected { .. } => {}
-            ClientToServerCommand::Disconnected => {}
-            ClientToServerCommand::User { .. } => {}
-            ClientToServerCommand::Nick { .. } => {}
+            ClientToServerCommand::Disconnected => {
+                match connections.remove(&received.connection_id) {
+                    Some(_) => {
+                        println!("REMOVED CONNECTION {}. {} users now connected", &received.connection_id, connections.len());
+                    },
+                    None => {
+                        println!("UNABLE TO REMOVE CONNECTION SHUTDOWN {}", &received.connection_id);
+                    }
+                }
+            }
+            ClientToServerCommand::User { user,
+                mode: _,
+                realname } => {
+                let mut conn_context = match connections.get_mut(&received.connection_id) {
+                    Some(c) => c,
+                    None => {
+                        continue;
+                    }
+                };
+                conn_context.user = Some(user.to_string());
+                conn_context.real_name = Some(realname.trim_start_matches(':').to_string());
+            }
+            ClientToServerCommand::Nick { nick, .. } => {
+                let mut conn_context = match connections.get_mut(&received.connection_id) {
+                    Some(c) => c,
+                    None => {
+                        continue;
+                    }
+                };
+    
+                let replies = handle_nick(
+                    &server_host,
+                    nick,
+                    &server_context.version,
+                    &server_context.start_time,
+                    &mut conn_context,
+                );
+    
+                send_replies(replies, &connections);
+            }
             ClientToServerCommand::Join { channels_to_join } => {
                 let replies = handle_join(
                     &server_host,
