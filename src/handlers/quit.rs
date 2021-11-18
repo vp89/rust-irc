@@ -6,7 +6,7 @@ use crate::{ChannelContext, ConnectionContext, replies::Reply};
 pub fn handle_quit(
     message: &Option<String>,
     channels: &mut HashMap<String, ChannelContext>,
-    connections: &mut HashMap<Uuid, ConnectionContext>,
+    connections: &HashMap<Uuid, ConnectionContext>,
     connection_id: Uuid,
 ) -> HashMap<Uuid, Vec<Reply>> {
     let conn_context = match connections.get(&connection_id) {

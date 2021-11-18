@@ -69,14 +69,6 @@ pub fn run_server(
             continue;
         }
 
-        if let ClientToServerCommand::Quit { message } = &received.command {
-            let replies = {
-                handle_quit(message, &mut channels, &mut connections, received.connection_id)
-            };
-            send_replies(replies, &connections);
-            continue;
-        }
-
         if let ClientToServerCommand::Disconnected = &received.command {
             match connections.remove(&received.connection_id) {
                 Some(_) => {
@@ -143,11 +135,16 @@ pub fn run_server(
                 );
                 send_replies(replies, &connections);
             }
+            ClientToServerCommand::Quit { message } => {
+                let replies = {
+                    handle_quit(message, &mut channels, &connections, received.connection_id)
+                };
+                send_replies(replies, &connections);
+            }
             // these won't make it here
             ClientToServerCommand::Unhandled { .. } => {}
             ClientToServerCommand::Ping { .. } => {}
             ClientToServerCommand::Pong {} => {}
-            ClientToServerCommand::Quit { .. } => {}
         };
     }
 }
