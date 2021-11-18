@@ -61,16 +61,18 @@ fn main() -> io::Result<()> {
 
                 let mut write_handle = stream.try_clone()?;
                 sender_handles.push(thread::spawn(move || {
-                    if let Err(e) =
-                        client_sender::run_sender(client_receiver_channel, &mut write_handle, &connection_id)
-                    {
+                    if let Err(e) = client_sender::run_sender(
+                        client_receiver_channel,
+                        &mut write_handle,
+                        &connection_id,
+                    ) {
                         println!("Error returned from client sender {:?}", e)
                     }
 
                     cloned_server_sender_channel_sender.send(ClientToServerMessage {
                         source: None,
                         command: ClientToServerCommand::Disconnected,
-                        connection_id
+                        connection_id,
                     });
                 }));
 
@@ -80,14 +82,16 @@ fn main() -> io::Result<()> {
                         return;
                     }
 
-                    if let Err(e) = cloned_server_sender_channel_listener.send(ClientToServerMessage {
-                        source: None,
-                        command: ClientToServerCommand::Connected {
-                            sender: ReplySender(cloned_client_sender_channel.clone()),
-                            client_ip: stream.peer_addr().ok(),
-                        },
-                        connection_id,
-                    }) {
+                    if let Err(e) =
+                        cloned_server_sender_channel_listener.send(ClientToServerMessage {
+                            source: None,
+                            command: ClientToServerCommand::Connected {
+                                sender: ReplySender(cloned_client_sender_channel.clone()),
+                                client_ip: stream.peer_addr().ok(),
+                            },
+                            connection_id,
+                        })
+                    {
                         println!("Error sending connection initialization message {:?}", e)
                     };
 

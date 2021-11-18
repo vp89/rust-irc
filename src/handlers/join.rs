@@ -21,7 +21,7 @@ pub fn handle_join(
         match channels.get_mut(channel) {
             Some(c) => {
                 c.members.insert(conn_context.connection_id);
-            },
+            }
             None => {
                 let mut members = HashSet::new();
                 members.insert(conn_context.connection_id);
@@ -30,9 +30,7 @@ pub fn handle_join(
                     channel.clone(),
                     // TODO this probably won't be right eventually
                     // if there needs to be persisted channel ownership?
-                    ChannelContext {
-                        members,
-                    },
+                    ChannelContext { members },
                 );
             }
         }

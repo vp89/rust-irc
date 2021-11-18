@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use std::{fmt::Display, net::SocketAddr};
+use uuid::Uuid;
 
 pub enum Reply {
     Welcome {
@@ -462,7 +462,13 @@ impl Display for Reply {
 
                 write!(f, "{} PRIVMSG {} :{}", prefix, channel, message)
             }
-            Reply::Quit { connection_id, nick, user, client_host, message } => {
+            Reply::Quit {
+                connection_id: _,
+                nick,
+                user,
+                client_host,
+                message,
+            } => {
                 // TODO this isnt strictly quite right
                 let mut prefix = format!("");
                 if let Some(n) = nick {

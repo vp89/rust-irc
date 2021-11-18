@@ -1,7 +1,16 @@
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::{ChannelContext, ConnectionContext, ServerContext, channels::ReceiverWrapper, handlers::{join::handle_join, mode::handle_mode, nick::handle_nick, privmsg::handle_privmsg, quit::handle_quit}, message_parsing::{ClientToServerCommand, ClientToServerMessage}, replies::Reply};
+use crate::{
+    channels::ReceiverWrapper,
+    handlers::{
+        join::handle_join, mode::handle_mode, nick::handle_nick, privmsg::handle_privmsg,
+        quit::handle_quit,
+    },
+    message_parsing::{ClientToServerCommand, ClientToServerMessage},
+    replies::Reply,
+    ChannelContext, ConnectionContext, ServerContext,
+};
 
 use crate::handlers::who::*;
 use crate::result::Result;
@@ -18,6 +27,7 @@ pub fn run_server(
     loop {
         let received = receiver_channel.receive()?;
 
+        // TODO figure out why I cant just move this into match, it breaks the tests
         if let ClientToServerCommand::Connected { sender, client_ip } = &received.command {
             let ctx = ConnectionContext {
                 connection_id: received.connection_id,
@@ -46,17 +56,26 @@ pub fn run_server(
             ClientToServerCommand::Disconnected => {
                 match connections.remove(&received.connection_id) {
                     Some(_) => {
-                        println!("REMOVED CONNECTION {}. {} users now connected", &received.connection_id, connections.len());
-                    },
+                        println!(
+                            "REMOVED CONNECTION {}. {} users now connected",
+                            &received.connection_id,
+                            connections.len()
+                        );
+                    }
                     None => {
-                        println!("UNABLE TO REMOVE CONNECTION SHUTDOWN {}", &received.connection_id);
+                        println!(
+                            "UNABLE TO REMOVE CONNECTION SHUTDOWN {}",
+                            &received.connection_id
+                        );
                     }
                 }
                 None
             }
-            ClientToServerCommand::User { user,
+            ClientToServerCommand::User {
+                user,
                 mode: _,
-                realname } => {
+                realname,
+            } => {
                 let mut conn_context = match connections.get_mut(&received.connection_id) {
                     Some(c) => c,
                     None => {
@@ -74,7 +93,7 @@ pub fn run_server(
                         continue;
                     }
                 };
-    
+
                 handle_nick(
                     &server_host,
                     nick,
@@ -83,43 +102,41 @@ pub fn run_server(
                     &mut conn_context,
                 )
             }
-            ClientToServerCommand::Join { channels_to_join } => {
-                handle_join(
-                    &server_host,
-                    ctx_nick,
-                    ctx_client,
-                    conn_context,
-                    &mut channels,
-                    &connections,
-                    channels_to_join,
-                )
+            ClientToServerCommand::Join { channels_to_join } => handle_join(
+                &server_host,
+                ctx_nick,
+                ctx_client,
+                conn_context,
+                &mut channels,
+                &connections,
+                channels_to_join,
+            ),
+            ClientToServerCommand::Mode { channel } => {
+                handle_mode(&server_host, ctx_nick, channel, conn_context)
             }
-            ClientToServerCommand::Mode { channel } => handle_mode(&server_host, ctx_nick, channel, conn_context),
-            ClientToServerCommand::Who { mask, .. } => {
-                handle_who(
-                    mask,
-                    &server_host,
-                    ctx_nick,
-                    &channels,
-                    &connections,
-                    conn_context,
-                )
+            ClientToServerCommand::Who { mask, .. } => handle_who(
+                mask,
+                &server_host,
+                ctx_nick,
+                &channels,
+                &connections,
+                conn_context,
+            ),
+            ClientToServerCommand::PrivMsg { channel, message } => handle_privmsg(
+                ctx_nick,
+                channel,
+                message,
+                conn_context,
+                &channels,
+                &connections,
+            ),
+            ClientToServerCommand::Quit { message } => {
+                handle_quit(message, &mut channels, &connections, received.connection_id)
             }
-            ClientToServerCommand::PrivMsg { channel, message } => {
-                handle_privmsg(
-                    ctx_nick,
-                    channel,
-                    message,
-                    conn_context,
-                    &channels,
-                    &connections,
-                )
-            }
-            ClientToServerCommand::Quit { message } => handle_quit(message, &mut channels, &connections, received.connection_id),
-            ClientToServerCommand::Connected { .. } => { None }
-            ClientToServerCommand::Unhandled { .. } => { None }
-            ClientToServerCommand::Ping { .. } => { None }
-            ClientToServerCommand::Pong {} => { None }
+            ClientToServerCommand::Connected { .. } => None,
+            ClientToServerCommand::Unhandled { .. } => None,
+            ClientToServerCommand::Ping { .. } => None,
+            ClientToServerCommand::Pong {} => None,
         };
 
         if let Some(replies) = replies {

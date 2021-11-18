@@ -59,7 +59,7 @@ pub enum ClientToServerCommand {
     },
     Pong,
     Quit {
-        message: Option<String>
+        message: Option<String>,
     },
 }
 
@@ -199,10 +199,10 @@ impl ClientToServerMessage {
             }
             "PONG" => ClientToServerCommand::Pong,
             "QUIT" => {
-                let message = words.next().map(|s| s.to_string() );
+                let message = words.next().map(|s| s.to_string());
 
                 ClientToServerCommand::Quit { message }
-            },
+            }
             _ => ClientToServerCommand::Unhandled,
         };
 

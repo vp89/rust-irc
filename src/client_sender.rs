@@ -8,7 +8,11 @@ use crate::error::Error::ServerToClientChannelFailedToReceive;
 use crate::replies::Reply;
 use crate::result::Result;
 
-pub fn run_sender(receiver: Receiver<Reply>, write_handle: &mut TcpStream, connection_id: &Uuid) -> Result<()> {
+pub fn run_sender(
+    receiver: Receiver<Reply>,
+    write_handle: &mut TcpStream,
+    connection_id: &Uuid,
+) -> Result<()> {
     let sender_connection_id = connection_id;
 
     loop {
@@ -18,7 +22,7 @@ pub fn run_sender(receiver: Receiver<Reply>, write_handle: &mut TcpStream, conne
 
         // The Quit message handler always sends at least 1 message
         // to the quitting user, so that this thread is able to stop
-        // itself 
+        // itself
         if let Reply::Quit { connection_id, .. } = received {
             if &connection_id == sender_connection_id {
                 return Ok(());
