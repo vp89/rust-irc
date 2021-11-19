@@ -64,3 +64,41 @@ pub fn handle_part(
 
     Some(map)
 }
+
+#[test]
+fn handle_part_no_channels_returns_error() {
+    let connection_id = Uuid::new_v4();
+    let server_host = "FOOBAR";
+
+    let mut conn_ctx = ConnectionContext::default();
+    conn_ctx.connection_id = connection_id;
+
+    let mut channels = HashMap::new();
+    let expected_reply = Reply::ErrNeedMoreParams {
+        server_host: server_host.to_owned(),
+        nick: "".to_owned(),
+        command: "PART".to_owned(),
+    };
+
+    match handle_part(
+        server_host,
+        "",
+        "",
+        &conn_ctx,
+        &mut channels,
+        vec![].as_slice(),
+    ) {
+        Some(r) => {
+            assert_eq!(1, r.len());
+            match r.get(&connection_id) {
+                Some(r) => {
+                    assert_eq!(1, r.len());
+                    let first_reply = r.first().unwrap();
+                    assert_eq!(&expected_reply, first_reply);
+                }
+                None => assert!(false),
+            }
+        }
+        None => assert!(false),
+    }
+}

@@ -148,10 +148,9 @@ pub struct ServerContext {
     pub ping_frequency: Duration,
 }
 
+#[derive(Default)]
 pub struct ConnectionContext {
     pub connection_id: Uuid,
-    pub client_sender_channel: ReplySender,
-    // TODO remove this?
     pub client: Option<String>,
     pub nick: Option<String>,
     pub user: Option<String>,

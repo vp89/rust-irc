@@ -7,7 +7,7 @@ use crate::{
         join::handle_join, mode::handle_mode, nick::handle_nick, part::handle_part,
         privmsg::handle_privmsg, quit::handle_quit,
     },
-    message_parsing::{ClientToServerCommand, ClientToServerMessage},
+    message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender},
     replies::Reply,
     ChannelContext, ConnectionContext, ServerContext,
 };
@@ -20,6 +20,7 @@ pub fn run_server(
     receiver_channel: &dyn ReceiverWrapper<ClientToServerMessage>,
 ) -> Result<()> {
     let mut connections = HashMap::new();
+    let mut sender_channels = HashMap::new();
     let server_host = server_context.server_host.clone();
     let empty_str = &String::from("");
     let mut channels: HashMap<String, ChannelContext> = HashMap::new();
@@ -34,7 +35,6 @@ pub fn run_server(
         if let ClientToServerCommand::Connected { sender, client_ip } = &received.command {
             let ctx = ConnectionContext {
                 connection_id: received.connection_id,
-                client_sender_channel: sender.clone(),
                 nick: None,
                 client: None,
                 user: None,
@@ -42,6 +42,7 @@ pub fn run_server(
                 client_host: *client_ip,
             };
             connections.insert(received.connection_id, ctx);
+            sender_channels.insert(received.connection_id, sender.clone());
             continue;
         }
 
@@ -151,18 +152,18 @@ pub fn run_server(
         };
 
         if let Some(replies) = replies {
-            send_replies(replies, &connections)
+            send_replies(replies, &sender_channels)
         }
     }
 }
 
 fn send_replies(
     replies_per_user: HashMap<Uuid, Vec<Reply>>,
-    connections: &HashMap<Uuid, ConnectionContext>,
+    sender_channels: &HashMap<Uuid, ReplySender>,
 ) {
     for (connection_id, replies) in replies_per_user {
-        let sender = match connections.get(&connection_id) {
-            Some(ctx) => &ctx.client_sender_channel.0,
+        let sender = match sender_channels.get(&connection_id) {
+            Some(sender) => &sender.0,
             None => {
                 // TODO
                 continue;

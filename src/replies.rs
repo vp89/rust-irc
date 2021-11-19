@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use std::{fmt::Display, net::SocketAddr};
 use uuid::Uuid;
 
+#[derive(PartialEq, Debug)]
 pub enum Reply {
     Welcome {
         server_host: String,
@@ -80,9 +81,6 @@ pub enum Reply {
         server_host: String,
         nick: String,
         mask: String,
-    },
-    ListEnd {
-        server_host: String,
     },
     // TODO mode should not be plain strings
     ChannelModeIs {
@@ -335,7 +333,6 @@ impl Display for Reply {
                 ":{} 315 {} {} :End of /WHO list.",
                 server_host, nick, mask
             ),
-            Reply::ListEnd { server_host } => write!(f, ":{} 323 :End of /LIST", server_host),
             // this may be duplicate of Mode?
             Reply::ChannelModeIs {
                 server_host,
@@ -738,16 +735,6 @@ fn pong_prints_correctly() {
     };
     let actual = reply.to_string();
     let expected = format!(":localhost PONG localhost :LAG1238948394");
-    assert_eq!(expected, actual);
-}
-
-#[test]
-fn listend_prints_correctly() {
-    let reply = Reply::ListEnd {
-        server_host: "localhost".to_string(),
-    };
-    let actual = reply.to_string();
-    let expected = format!(":localhost 323 :End of /LIST");
     assert_eq!(expected, actual);
 }
 
