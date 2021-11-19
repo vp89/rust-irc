@@ -4,8 +4,8 @@ use uuid::Uuid;
 use crate::{
     channels::ReceiverWrapper,
     handlers::{
-        join::handle_join, mode::handle_mode, nick::handle_nick, privmsg::handle_privmsg,
-        quit::handle_quit,
+        join::handle_join, mode::handle_mode, nick::handle_nick, part::handle_part,
+        privmsg::handle_privmsg, quit::handle_quit,
     },
     message_parsing::{ClientToServerCommand, ClientToServerMessage},
     replies::Reply,
@@ -113,6 +113,14 @@ pub fn run_server(
                 &mut channels,
                 &connections,
                 channels_to_join,
+            ),
+            ClientToServerCommand::Part { channels_to_leave } => handle_part(
+                &server_host,
+                ctx_nick,
+                ctx_client,
+                conn_context,
+                &mut channels,
+                channels_to_leave,
             ),
             ClientToServerCommand::Mode { channel } => {
                 handle_mode(&server_host, ctx_nick, channel, conn_context)

@@ -61,6 +61,9 @@ pub enum ClientToServerCommand {
     Quit {
         message: Option<String>,
     },
+    Part {
+        channels_to_leave: Vec<String>,
+    },
 }
 
 // TODO this doesnt handle NICK params
@@ -142,6 +145,17 @@ impl ClientToServerMessage {
 
                 let channels_to_join = raw_channels.split(',').map(|s| s.to_string()).collect();
                 ClientToServerCommand::Join { channels_to_join }
+            }
+            "PART" => {
+                let raw_channels: String = match words.next() {
+                    Some(s) => Ok(s.to_owned()),
+                    None => Err(MessageParsingErrorMissingParameter {
+                        param_name: "channels".to_string(),
+                    }),
+                }?;
+
+                let channels_to_leave = raw_channels.split(',').map(|s| s.to_string()).collect();
+                ClientToServerCommand::Part { channels_to_leave }
             }
             "MODE" => {
                 let channel = match words.next() {

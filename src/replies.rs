@@ -156,6 +156,10 @@ pub enum Reply {
         client: String,
         channel: String,
     },
+    Part {
+        client: String,
+        channel: String,
+    },
     PrivMsg {
         client_host: Option<SocketAddr>,
         nick: Option<String>,
@@ -177,6 +181,14 @@ pub enum Reply {
     },
     ErrNoNickGiven {
         server_host: String,
+    },
+    ErrNoSuchChannel {
+        server_host: String,
+        channel: String,
+    },
+    ErrNotOnChannel {
+        server_host: String,
+        channel: String,
     },
 }
 
@@ -437,8 +449,8 @@ impl Display for Reply {
             Reply::Pong { server_host, token } => {
                 write!(f, ":{} PONG {} :{}", server_host, server_host, token)
             }
-            // this is sent to all users on the channel maybe should not be in this file?
             Reply::Join { client, channel } => write!(f, ":{} JOIN :{}", client, channel),
+            Reply::Part { client, channel } => write!(f, ":{} PART {}", client, channel),
             Reply::PrivMsg {
                 client_host,
                 nick,
@@ -498,6 +510,22 @@ impl Display for Reply {
             }
             Reply::ErrNoNickGiven { server_host } => {
                 write!(f, "{} 431 :No nickname given", server_host)
+            }
+            Reply::ErrNoSuchChannel {
+                server_host,
+                channel,
+            } => {
+                write!(f, "{} 403 {} :No such channel", server_host, channel)
+            }
+            Reply::ErrNotOnChannel {
+                server_host,
+                channel,
+            } => {
+                write!(
+                    f,
+                    "{} 442 {} :You're not on that channel",
+                    server_host, channel
+                )
             }
         }
     }

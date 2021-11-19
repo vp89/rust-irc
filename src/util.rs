@@ -17,21 +17,21 @@ pub fn match_mask(input: &str, mask: &str) -> bool {
 }
 
 #[test]
-fn foo() {
+fn match_mask_prefix_matches_no_wildcard_no_match() {
     assert_eq!(false, match_mask("nick!username@host", "nick"));
 }
 
 #[test]
-fn foo2() {
+fn match_mask_single_char_wildcard_multi_char_mask_no_match() {
     assert_eq!(false, match_mask("nick!username@host", "?"));
 }
 
 #[test]
-fn foo3() {
+fn match_mask_wildcard_matches() {
     assert_eq!(true, match_mask("nick!username@host", "*"));
 }
 
 #[test]
-fn baz() {
+fn match_mask_prefix_with_wildcard_matches() {
     assert_eq!(true, match_mask("nick!username@host", "nick*"));
 }
