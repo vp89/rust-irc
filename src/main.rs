@@ -69,11 +69,18 @@ fn main() -> io::Result<()> {
                         println!("Error returned from client sender {:?}", e)
                     }
 
-                    cloned_server_sender_channel_sender.send(ClientToServerMessage {
-                        source: None,
-                        command: ClientToServerCommand::Disconnected,
-                        connection_id,
-                    });
+                    if let Err(e) =
+                        cloned_server_sender_channel_sender.send(ClientToServerMessage {
+                            source: None,
+                            command: ClientToServerCommand::Disconnected,
+                            connection_id,
+                        })
+                    {
+                        println!(
+                            "Error sending disconnected message for connection_id {} {:?}",
+                            connection_id, e
+                        );
+                    }
                 }));
 
                 listener_handles.push(thread::spawn(move || {

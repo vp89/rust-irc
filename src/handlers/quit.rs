@@ -32,17 +32,6 @@ pub fn handle_quit(
             continue;
         }
 
-        println!(
-            "Removed {} from {} channel",
-            conn_context.nick.as_ref().unwrap(),
-            channel.0
-        );
-        println!(
-            "{} channel members remaining in {}",
-            channel.1.members.len(),
-            channel.0
-        );
-
         for member in &channel.1.members {
             match connections.get(member) {
                 Some(_c) => {
@@ -57,7 +46,12 @@ pub fn handle_quit(
                         }],
                     );
                 }
-                None => {}
+                None => {
+                    println!(
+                        "Connection context not found for user in a channel list {}",
+                        member
+                    );
+                }
             }
         }
     }

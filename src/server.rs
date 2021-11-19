@@ -27,7 +27,10 @@ pub fn run_server(
     loop {
         let received = receiver_channel.receive()?;
 
-        // TODO figure out why I cant just move this into match, it breaks the tests
+        // This should always be the first command received for any given connection
+        // and thus the only one where there is no connection context available.
+        // We can handle it here instead of in the match below so that the rest of the
+        // commands can just deal with a ConnectionContext instead of an Option<ConnectionContext>
         if let ClientToServerCommand::Connected { sender, client_ip } = &received.command {
             let ctx = ConnectionContext {
                 connection_id: received.connection_id,
