@@ -442,4 +442,49 @@ mod tests {
         });
         assert_eq!(expected, message);
     }
+
+    #[test]
+    fn message_parsing_part_missing_channels() {
+        let connection_id = Uuid::new_v4();
+        let raw_str = &format!("PART");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id);
+        let expected = Err(MessageParsingErrorMissingParameter {
+            param_name: "channels".to_string(),
+        });
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn message_parsing_part_single_channel_parses_correctly() {
+        let connection_id = Uuid::new_v4();
+        let raw_str = &format!("PART #foo");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
+        let expected = ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::Part {
+                channels_to_leave: vec!["#foo".to_string()],
+            },
+            connection_id,
+        };
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn message_parsing_part_multiple_channels_parses_correctly() {
+        let connection_id = Uuid::new_v4();
+        let raw_str = &format!("PART #foo,#bar,#baz");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
+        let expected = ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::Part {
+                channels_to_leave: vec!["#foo".to_string(), "#bar".to_string(), "#baz".to_string()],
+            },
+            connection_id,
+        };
+
+        assert_eq!(expected, message);
+    }
 }

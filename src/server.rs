@@ -58,12 +58,18 @@ pub fn run_server(
 
         let replies = match &received.command {
             ClientToServerCommand::Disconnected => {
-                if let None = connections.remove(&received.connection_id) {
-                    println!("Disconnected connection {} already removed", &received.connection_id);
+                if connections.remove(&received.connection_id).is_none() {
+                    println!(
+                        "Disconnected connection {} already removed",
+                        &received.connection_id
+                    );
                 }
 
-                if let None = sender_channels.remove(&received.connection_id) {
-                    println!("Disconnected connection {} already removed from sender channels", &received.connection_id);
+                if sender_channels.remove(&received.connection_id).is_none() {
+                    println!(
+                        "Disconnected connection {} already removed from sender channels",
+                        &received.connection_id
+                    );
                 }
 
                 None
