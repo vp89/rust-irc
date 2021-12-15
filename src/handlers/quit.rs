@@ -23,6 +23,13 @@ pub fn handle_quit(
     };
 
     for channel in channels {
+        if !channel.1.members.contains(&conn_context.connection_id) {
+            continue;
+        }
+
+        // if the quitting user was part of this channel, remove them
+        // from the list and then send a QUIT to everyone other user
+        // in the channel
         if !channel.1.members.remove(&conn_context.connection_id) {
             println!(
                 "UNABLE TO REMOVE {} FROM CHANNEL {}",

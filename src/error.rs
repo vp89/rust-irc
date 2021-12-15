@@ -2,12 +2,18 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::sync::mpsc::RecvError;
 
+// should these be separate enums? what is idiomatic way to manage a large
+// error enum?
 #[derive(Debug, PartialEq)]
 pub enum Error {
+    MessageReadingErrorNotUtf8,
+    MessageReadingErrorNoMessageSeparatorProvided,
+    MessageReadingErrorLastMessageMissingSeparator,
+    MessageReadingErrorStreamClosed,
+    MessageReadingErrorIoFailure,
     MessageParsingErrorMissingCommand,
     MessageParsingErrorMissingParameter { param_name: String },
     MessageParsingErrorInvalidChannelFormat { provided_channel: String },
-    ServerToClientChannelFailedToReceive(RecvError),
     ClientToServerChannelFailedToReceive(RecvError),
     TestErrorNoMoreMessagesInReceiver,
 }
@@ -15,6 +21,24 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Error::MessageReadingErrorNotUtf8 => {
+                write!(f, "Error reading message(s), must be valid UTF-8")
+            }
+            Error::MessageReadingErrorNoMessageSeparatorProvided => {
+                write!(f, "Error reading message(s), no message separator provided")
+            }
+            Error::MessageReadingErrorLastMessageMissingSeparator => {
+                write!(
+                    f,
+                    "Error reading message(s), last message is missing separator"
+                )
+            }
+            Error::MessageReadingErrorStreamClosed => {
+                write!(f, "Error reading message(s), stream is closed")
+            }
+            Error::MessageReadingErrorIoFailure => {
+                write!(f, "Error reading message(s), IO failure")
+            }
             Error::MessageParsingErrorMissingCommand => {
                 write!(f, "Error parsing message, command is missing")
             }
@@ -30,13 +54,6 @@ impl Display for Error {
                     f,
                     "Error parsing message, channel {} does not begin with #",
                     provided_channel
-                )
-            }
-            Error::ServerToClientChannelFailedToReceive(e) => {
-                write!(
-                    f,
-                    "Error receiving outbound message from server worker {:?}",
-                    e
                 )
             }
             Error::ClientToServerChannelFailedToReceive(e) => {

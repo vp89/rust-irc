@@ -60,6 +60,7 @@ fn main() -> io::Result<()> {
                 let cloned_client_sender_channel = client_sender_channel.clone();
 
                 let mut write_handle = stream.try_clone()?;
+
                 sender_handles.push(thread::spawn(move || {
                     if let Err(e) = client_sender::run_sender(
                         client_receiver_channel,
@@ -69,17 +70,8 @@ fn main() -> io::Result<()> {
                         println!("Error returned from client sender {:?}", e)
                     }
 
-                    if let Err(e) =
-                        cloned_server_sender_channel_sender.send(ClientToServerMessage {
-                            source: None,
-                            command: ClientToServerCommand::Disconnected,
-                            connection_id,
-                        })
-                    {
-                        println!(
-                            "Error sending disconnected message for connection_id {} {:?}",
-                            connection_id, e
-                        );
+                    if let Err(e) = write_handle.shutdown(Shutdown::Write) {
+                        println!("Error shutting down socket {:?}", e)
                     }
                 }));
 
@@ -111,8 +103,20 @@ fn main() -> io::Result<()> {
                         println!("Error returned from client listener {:?}", e)
                     }
 
-                    // TODO sender should shut itself down by receiving a message from server manager?
-                    if let Err(e) = stream.shutdown(Shutdown::Both) {
+                    if let Err(e) =
+                        cloned_server_sender_channel_sender.send(ClientToServerMessage {
+                            source: None,
+                            command: ClientToServerCommand::Disconnected,
+                            connection_id,
+                        })
+                    {
+                        println!(
+                            "Error sending disconnected message for connection_id {} {:?}",
+                            connection_id, e
+                        );
+                    }
+
+                    if let Err(e) = stream.shutdown(Shutdown::Read) {
                         println!("Error shutting down socket {:?}", e)
                     }
                 }));

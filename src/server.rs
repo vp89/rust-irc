@@ -49,6 +49,12 @@ pub fn run_server(
         let conn_context = match connections.get(&received.connection_id) {
             Some(c) => c,
             None => {
+                println!(
+                    "Unexpected message sequence, received a {:?} message for {} before properly establishing a connection",
+                    received.command,
+                    received.connection_id
+                );
+
                 continue;
             }
         };

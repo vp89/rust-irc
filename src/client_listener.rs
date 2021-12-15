@@ -1,8 +1,11 @@
+use crate::error::Error::*;
+use crate::result::Result;
 use crate::{
     message_parsing::{ClientToServerCommand, ClientToServerMessage},
     replies::Reply,
     ServerContext,
 };
+
 use std::sync::mpsc::Sender;
 use std::{
     collections::VecDeque,
@@ -54,10 +57,12 @@ pub fn run_listener(
 
         let raw_messages = match get_messages(&mut reader) {
             Ok(m) => m,
-            Err(e) => {
-                println!("Error getting valid messages from the reader {:?}", e);
-                continue;
-            }
+            Err(e) => match e {
+                MessageReadingErrorStreamClosed => return Ok(()),
+                _ => {
+                    continue;
+                }
+            },
         };
 
         for raw_message in &raw_messages {
@@ -109,21 +114,26 @@ pub fn run_listener(
     }
 }
 
-fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
-    // TODO can this be cleaned up?
+fn get_messages<T: BufRead>(reader: &mut T) -> Result<Vec<String>> {
     let bytes = match reader.fill_buf() {
         Ok(s) => Ok(s),
-        Err(e) => match e.kind() {
-            // This particular ErrorKind is returned on Unix platforms
-            // if the TcpStream timed out per the read_timeout setting
-            // would need to test that on Windows if that became a goal to
-            // support both of those.
-            ErrorKind::WouldBlock => return Ok(vec![]),
-            _ => Err(e),
-        },
+        Err(e) => {
+            match e.kind() {
+                // This particular ErrorKind is returned on Unix platforms
+                // if the TcpStream timed out per the read_timeout setting
+                // would need to test that on Windows if that became a goal to
+                // support both of those.
+                ErrorKind::WouldBlock => return Ok(vec![]),
+                _ => Err(MessageReadingErrorIoFailure),
+            }
+        }
     }?;
 
     let bytes_read = bytes.len();
+
+    if bytes_read == 0 {
+        return Err(MessageReadingErrorStreamClosed);
+    }
 
     match std::str::from_utf8(bytes) {
         Ok(s) => {
@@ -135,22 +145,16 @@ fn get_messages<T: BufRead>(reader: &mut T) -> io::Result<Vec<String>> {
 
             // TODO create own Error kinds/type??
             if split_messages.len() <= 1 {
-                Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "No message separator provided",
-                ))
+                Err(MessageReadingErrorNoMessageSeparatorProvided)
             } else if split_messages.last().unwrap_or(&"BLAH".to_string()) != &format!("") {
-                Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "Last message did not have expected separator",
-                ))
+                Err(MessageReadingErrorLastMessageMissingSeparator)
             } else {
                 split_messages.truncate(split_messages.len() - 1);
                 reader.consume(bytes_read);
                 Ok(split_messages)
             }
         }
-        Err(e) => Err(io::Error::new(io::ErrorKind::InvalidData, e)),
+        Err(_) => Err(MessageReadingErrorNotUtf8),
     }
 }
 
@@ -200,7 +204,7 @@ fn get_messages_multiplemessages_noterminator_errors() {
     let result = get_messages(&mut faked_bufreader)
         .expect_err("Testing expect an error to be returned here");
     assert_eq!(
-        "Last message did not have expected separator",
+        "Error reading message(s), last message is missing separator",
         result.to_string()
     );
 }
@@ -217,7 +221,10 @@ fn get_messages_nolineterminator_errors() {
 
     let result = get_messages(&mut faked_bufreader)
         .expect_err("Testing expect an error to be returned here");
-    assert_eq!("No message separator provided", result.to_string());
+    assert_eq!(
+        "Error reading message(s), no message separator provided",
+        result.to_string()
+    );
 }
 
 #[test]
