@@ -1,4 +1,4 @@
-use crate::error::Error::*;
+use crate::error::{Error::*, IoError};
 use crate::result::Result;
 use crate::{
     message_parsing::{ClientToServerCommand, ClientToServerMessage},
@@ -20,11 +20,12 @@ pub fn run_listener(
     stream: &TcpStream,
     server_sender: Sender<ClientToServerMessage>,
     context: ServerContext,
-) -> io::Result<()> {
+) -> Result<()> {
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
     // there also needs to be a ping loop going on that can stop this loop too
-    let mut write_handle = stream.try_clone()?;
+    let mut write_handle = stream.try_clone().map_err(|e| ClientListenerFailed(IoError(e)))?;
+
     let mut reader = io::BufReader::with_capacity(512, stream);
     let mut last_pong = Instant::now();
     let mut waiting_for_pong = false;
@@ -51,8 +52,8 @@ pub fn run_listener(
                 }
                 .to_string()
             );
-            write_handle.write_all(ping.as_bytes())?;
-            write_handle.flush()?;
+            write_handle.write_all(ping.as_bytes()).map_err(|e| ClientListenerFailed(IoError(e)))?;
+            write_handle.flush().map_err(|e| ClientListenerFailed(IoError(e)))?;
         }
 
         let raw_messages = match get_messages(&mut reader) {
@@ -87,8 +88,8 @@ pub fn run_listener(
                         }
                         .to_string()
                     );
-                    write_handle.write_all(pong.as_bytes())?;
-                    write_handle.flush()?;
+                    write_handle.write_all(pong.as_bytes()).map_err(|e| ClientListenerFailed(IoError(e)))?;
+                    write_handle.flush().map_err(|e| ClientListenerFailed(IoError(e)))?;
                 }
                 ClientToServerCommand::Pong => {
                     last_pong = Instant::now();
