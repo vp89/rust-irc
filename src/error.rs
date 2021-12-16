@@ -26,6 +26,8 @@ pub enum Error {
 // the type its wrapping over needs to be declared as pub to be used "publicly"
 pub struct IoError(pub io::Error);
 
+// this is sufficient we just want the Error enum to impl PartialEq for unit testing
+// so we can just use assert_eq! against an expected struct
 impl PartialEq for IoError {
     fn eq(&self, other: &Self) -> bool {
         self.0.kind() == other.0.kind()

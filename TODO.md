@@ -9,6 +9,10 @@
 - Should non-graceful disconnect send QUIT anyway?
 - Verify that threads/sockets are not leaking, ie. connections are fully shutdown even when QUIT not received
 
+## Efficiency
+- Look at async to keep thread usage down (currently 2+2N where N is # of connections)
+- Can we reduce file descriptor usage per connection from 3 -> 2 or even 1?
+
 ## Error handling
 
 ## Code organization
