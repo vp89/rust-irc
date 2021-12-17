@@ -501,18 +501,18 @@ impl Display for Reply {
             } => {
                 write!(
                     f,
-                    "{} 461 {} {} :Not enough parameters",
+                    ":{} 461 {} {} :Not enough parameters",
                     server_host, nick, command
                 )
             }
             Reply::ErrNoNickGiven { server_host } => {
-                write!(f, "{} 431 :No nickname given", server_host)
+                write!(f, ":{} 431 :No nickname given", server_host)
             }
             Reply::ErrNoSuchChannel {
                 server_host,
                 channel,
             } => {
-                write!(f, "{} 403 {} :No such channel", server_host, channel)
+                write!(f, ":{} 403 {} :No such channel", server_host, channel)
             }
             Reply::ErrNotOnChannel {
                 server_host,
@@ -520,7 +520,7 @@ impl Display for Reply {
             } => {
                 write!(
                     f,
-                    "{} 442 {} :You're not on that channel",
+                    ":{} 442 {} :You're not on that channel",
                     server_host, channel
                 )
             }

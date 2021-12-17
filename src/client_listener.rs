@@ -79,18 +79,6 @@ pub fn run_listener(
                 ClientToServerCommand::Unhandled => {
                     println!("Unhandled message received {:?} {}", message, raw_message);
                 }
-                ClientToServerCommand::Ping { token } => {
-                    let pong = format!(
-                        "{}\r\n",
-                        Reply::Pong {
-                            server_host: server_host.clone(),
-                            token: token.clone()
-                        }
-                        .to_string()
-                    );
-                    write_handle.write_all(pong.as_bytes()).map_err(|e| ClientListenerFailed(IoError(e)))?;
-                    write_handle.flush().map_err(|e| ClientListenerFailed(IoError(e)))?;
-                }
                 ClientToServerCommand::Pong => {
                     last_pong = Instant::now();
                     waiting_for_pong = false;

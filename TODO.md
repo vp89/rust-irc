@@ -2,6 +2,9 @@
 
 ## Working on
 
+## Functionality/Correctness
+- Pass PINGPONG tests in irctest suite and add missing coverage
+
 ## Testing
 - Look into how to build automated "end to end" tests to test things like connection shutdown behavior
 

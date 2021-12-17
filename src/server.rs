@@ -5,7 +5,7 @@ use crate::{
     channels::ReceiverWrapper,
     handlers::{
         join::handle_join, mode::handle_mode, nick::handle_nick, part::handle_part,
-        privmsg::handle_privmsg, quit::handle_quit,
+        privmsg::handle_privmsg, quit::handle_quit, ping::handle_ping
     },
     message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender},
     replies::Reply,
@@ -152,7 +152,9 @@ pub fn run_server(
             }
             ClientToServerCommand::Connected { .. } => None,
             ClientToServerCommand::Unhandled { .. } => None,
-            ClientToServerCommand::Ping { .. } => None,
+            ClientToServerCommand::Ping { token } => {
+                handle_ping(&server_host, ctx_nick, token, conn_context)
+            },
             ClientToServerCommand::Pong {} => None,
         };
 

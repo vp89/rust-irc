@@ -37,9 +37,5 @@ pub fn run_sender(
         if let Err(e) = write_handle.write_all(reply.as_bytes()) {
             println!("Error writing reply {} {:?}", reply, e);
         }
-
-        if let Err(e) = write_handle.flush() {
-            println!("Error flushing write handle {:?}", e);
-        }
     }
 }

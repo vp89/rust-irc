@@ -36,7 +36,7 @@ pub enum ClientToServerCommand {
         nick: Option<String>,
     },
     Ping {
-        token: String,
+        token: Option<String>,
     },
     Join {
         channels_to_join: Vec<String>,
@@ -127,11 +127,9 @@ impl ClientToServerMessage {
             }
             "PING" => {
                 let token = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "token".to_string(),
-                    }),
-                }?;
+                    Some(s) => Some(s.trim_start_matches(':').to_owned()),
+                    None => None
+                };
 
                 ClientToServerCommand::Ping { token }
             }
@@ -481,6 +479,57 @@ mod tests {
             source: None,
             command: ClientToServerCommand::Part {
                 channels_to_leave: vec!["#foo".to_string(), "#bar".to_string(), "#baz".to_string()],
+            },
+            connection_id,
+        };
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn message_parsing_ping_token_provided_parses_correctly() {
+        let connection_id = Uuid::new_v4();
+        let raw_str = &format!("PING :foobar");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
+        let expected = ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::Ping {
+                token: Some("foobar".to_string())
+            },
+            connection_id,
+        };
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn message_parsing_ping_empty_token_parses_correctly() {
+        let connection_id = Uuid::new_v4();
+        let raw_str = &format!("PING :");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
+        let expected = ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::Ping {
+                token: Some("".to_string())
+            },
+            connection_id,
+        };
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn message_parsing_ping_missing_token_errors() {
+        let connection_id = Uuid::new_v4();
+        let raw_str = &format!("PING");
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
+        let expected = ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::Ping {
+                token: None
             },
             connection_id,
         };
