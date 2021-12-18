@@ -87,6 +87,7 @@ impl ClientToServerMessage {
         raw_command = uppercased.as_ref();
 
         let command = match raw_command {
+            // TODO move this into PRIVMSG handler and make message an Option<String>
             "PRIVMSG" => {
                 let channel = match words.next() {
                     Some(s) => Ok(s.to_owned()),
@@ -129,6 +130,7 @@ impl ClientToServerMessage {
                 let token = words.next().map(|s| s.trim_start_matches(':').to_owned());
                 ClientToServerCommand::Ping { token }
             }
+            // TODO move this into JOIN handler and make channels an Option<Vec<String>>
             "JOIN" => {
                 let raw_channels: String = match words.next() {
                     Some(s) => Ok(s.to_owned()),
@@ -140,6 +142,7 @@ impl ClientToServerMessage {
                 let channels_to_join = raw_channels.split(',').map(|s| s.to_string()).collect();
                 ClientToServerCommand::Join { channels_to_join }
             }
+            // TODO move this into PART handler and make channels an Option<Vec<String>>
             "PART" => {
                 let raw_channels: String = match words.next() {
                     Some(s) => Ok(s.to_owned()),
@@ -151,6 +154,7 @@ impl ClientToServerMessage {
                 let channels_to_leave = raw_channels.split(',').map(|s| s.to_string()).collect();
                 ClientToServerCommand::Part { channels_to_leave }
             }
+            // TODO move this into MODE handler and make channels an Option<String>
             "MODE" => {
                 let channel = match words.next() {
                     Some(s) => Ok(s.to_owned()),
@@ -174,6 +178,7 @@ impl ClientToServerMessage {
                     only_operators,
                 }
             }
+            // TODO move this into USER handler and make user/mode/realname Option<String>
             "USER" => {
                 let user = match words.next() {
                     Some(s) => Ok(s.to_owned()),
