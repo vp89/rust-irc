@@ -51,8 +51,9 @@ pub fn run_listener(
                 }
                 .to_string()
             );
-            write_handle.write_all(ping.as_bytes()).map_err(|e| ClientListenerFailed(IoError(e)))?;
-            write_handle.flush().map_err(|e| ClientListenerFailed(IoError(e)))?;
+            write_handle
+                .write_all(ping.as_bytes())
+                .map_err(|e| ClientListenerFailed(IoError(e)))?;
         }
 
         let raw_messages = match get_messages(&mut reader) {

@@ -79,11 +79,7 @@ impl Display for Error {
                 )
             }
             Error::ClientListenerFailed(e) => {
-                write!(
-                    f,
-                    "Error from client listener {:?}",
-                    e
-                )
+                write!(f, "Error from client listener {:?}", e)
             }
             Error::ClientToServerChannelFailedToReceive(e) => {
                 write!(

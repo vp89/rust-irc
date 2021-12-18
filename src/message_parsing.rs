@@ -126,11 +126,7 @@ impl ClientToServerMessage {
                 ClientToServerCommand::Nick { nick }
             }
             "PING" => {
-                let token = match words.next() {
-                    Some(s) => Some(s.trim_start_matches(':').to_owned()),
-                    None => None
-                };
-
+                let token = words.next().map(|s| s.trim_start_matches(':').to_owned());
                 ClientToServerCommand::Ping { token }
             }
             "JOIN" => {
@@ -495,7 +491,7 @@ mod tests {
         let expected = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Ping {
-                token: Some("foobar".to_string())
+                token: Some("foobar".to_string()),
             },
             connection_id,
         };
@@ -512,7 +508,7 @@ mod tests {
         let expected = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Ping {
-                token: Some("".to_string())
+                token: Some("".to_string()),
             },
             connection_id,
         };
@@ -528,9 +524,7 @@ mod tests {
             .expect("Failed to parse valid message");
         let expected = ClientToServerMessage {
             source: None,
-            command: ClientToServerCommand::Ping {
-                token: None
-            },
+            command: ClientToServerCommand::Ping { token: None },
             connection_id,
         };
 
