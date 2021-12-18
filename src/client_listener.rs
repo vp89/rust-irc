@@ -24,8 +24,7 @@ pub fn run_listener(
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
     // there also needs to be a ping loop going on that can stop this loop too
-    let mut write_handle = stream.try_clone().map_err(|e| ClientListenerFailed(IoError(e)))?;
-
+    let mut write_handle = stream;
     let mut reader = io::BufReader::with_capacity(512, stream);
     let mut last_pong = Instant::now();
     let mut waiting_for_pong = false;
