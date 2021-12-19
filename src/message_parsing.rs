@@ -42,7 +42,7 @@ pub enum ClientToServerCommand {
         channels_to_join: Vec<String>,
     },
     Mode {
-        channel: String,
+        channel: Option<String>,
     },
     Who {
         mask: Option<String>,
@@ -154,15 +154,8 @@ impl ClientToServerMessage {
                 let channels_to_leave = raw_channels.split(',').map(|s| s.to_string()).collect();
                 ClientToServerCommand::Part { channels_to_leave }
             }
-            // TODO move this into MODE handler and make channels an Option<String>
             "MODE" => {
-                let channel = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "channel".to_string(),
-                    }),
-                }?;
-
+                let channel = words.next().map(|s| s.to_owned());
                 ClientToServerCommand::Mode { channel }
             }
             "WHO" => {

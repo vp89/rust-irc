@@ -18,18 +18,16 @@ pub fn handle_user(
             let mut map = HashMap::new();
             map.insert(
                 conn_context.connection_id,
-                vec![
-                    Reply::ErrNeedMoreParams {
-                        server_host: server_host.to_string(),
-                        nick: nick.to_string(),
-                        command: "USER".to_string(),
-                    }
-                ]
+                vec![Reply::ErrNeedMoreParams {
+                    server_host: server_host.to_string(),
+                    nick: nick.to_string(),
+                    command: "USER".to_string(),
+                }],
             );
 
             return Some(map);
-        },
-        Some(user) => user
+        }
+        Some(user) => user,
     };
 
     // TODO validate on mode?
@@ -39,18 +37,16 @@ pub fn handle_user(
             let mut map = HashMap::new();
             map.insert(
                 conn_context.connection_id,
-                vec![
-                    Reply::ErrNeedMoreParams {
-                        server_host: server_host.to_string(),
-                        nick: nick.to_string(),
-                        command: "USER".to_string(),
-                    }
-                ]
+                vec![Reply::ErrNeedMoreParams {
+                    server_host: server_host.to_string(),
+                    nick: nick.to_string(),
+                    command: "USER".to_string(),
+                }],
             );
 
             return Some(map);
-        },
-        Some(realname) => realname.trim_start_matches(':')
+        }
+        Some(realname) => realname.trim_start_matches(':'),
     };
 
     conn_context.user = Some(user.to_string());

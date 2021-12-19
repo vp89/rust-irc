@@ -92,7 +92,7 @@ pub fn run_server(
                     }
                 };
 
-                handle_user(&server_host, &user, &realname, &mut conn_context)
+                handle_user(&server_host, user, realname, &mut conn_context)
             }
             ClientToServerCommand::Nick { nick, .. } => {
                 let mut conn_context = match connections.get_mut(&received.connection_id) {
