@@ -10,8 +10,22 @@ pub fn handle_part(
     client: &str,
     conn_context: &ConnectionContext,
     channels: &mut HashMap<String, ChannelContext>,
-    channels_to_leave: &[String],
+    channels_to_leave: &Option<Vec<String>>,
 ) -> Option<HashMap<Uuid, Vec<Reply>>> {
+    let channels_to_leave = match channels_to_leave {
+        Some(c) => c,
+        None => {
+            return Some(HashMap::<_, _>::from_iter([(
+                conn_context.connection_id,
+                vec![Reply::ErrNeedMoreParams {
+                    server_host: server_host.to_owned(),
+                    nick: nick.to_owned(),
+                    command: "PART".to_string(),
+                }],
+            )]));
+        }
+    };
+
     if channels_to_leave.is_empty() {
         return Some(HashMap::<_, _>::from_iter([(
             conn_context.connection_id,
@@ -80,14 +94,7 @@ fn handle_part_no_channels_returns_error() {
         command: "PART".to_owned(),
     };
 
-    match handle_part(
-        server_host,
-        "",
-        "",
-        &conn_ctx,
-        &mut channels,
-        vec![].as_slice(),
-    ) {
+    match handle_part(server_host, "", "", &conn_ctx, &mut channels, &Some(vec![])) {
         Some(r) => {
             assert_eq!(1, r.len());
             match r.get(&connection_id) {

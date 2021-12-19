@@ -62,7 +62,7 @@ pub enum ClientToServerCommand {
         message: Option<String>,
     },
     Part {
-        channels_to_leave: Vec<String>,
+        channels_to_leave: Option<Vec<String>>,
     },
 }
 
@@ -144,14 +144,9 @@ impl ClientToServerMessage {
             }
             // TODO move this into PART handler and make channels an Option<Vec<String>>
             "PART" => {
-                let raw_channels: String = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "channels".to_string(),
-                    }),
-                }?;
-
-                let channels_to_leave = raw_channels.split(',').map(|s| s.to_string()).collect();
+                let channels_to_leave: Option<Vec<String>> = words
+                    .next()
+                    .map(|s| s.to_owned().split(',').map(|s| s.to_string()).collect());
                 ClientToServerCommand::Part { channels_to_leave }
             }
             "MODE" => {
@@ -422,10 +417,15 @@ mod tests {
     fn message_parsing_part_missing_channels() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PART");
-        let message = ClientToServerMessage::from_str(raw_str, connection_id);
-        let expected = Err(MessageParsingErrorMissingParameter {
-            param_name: "channels".to_string(),
-        });
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
+        let expected = ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::Part {
+                channels_to_leave: None,
+            },
+            connection_id,
+        };
         assert_eq!(expected, message);
     }
 
@@ -438,7 +438,7 @@ mod tests {
         let expected = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Part {
-                channels_to_leave: vec!["#foo".to_string()],
+                channels_to_leave: Some(vec!["#foo".to_string()]),
             },
             connection_id,
         };
@@ -455,7 +455,11 @@ mod tests {
         let expected = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Part {
-                channels_to_leave: vec!["#foo".to_string(), "#bar".to_string(), "#baz".to_string()],
+                channels_to_leave: Some(vec![
+                    "#foo".to_string(),
+                    "#bar".to_string(),
+                    "#baz".to_string(),
+                ]),
             },
             connection_id,
         };
