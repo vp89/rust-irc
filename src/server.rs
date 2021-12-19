@@ -5,7 +5,7 @@ use crate::{
     channels::ReceiverWrapper,
     handlers::{
         join::handle_join, mode::handle_mode, nick::handle_nick, part::handle_part,
-        ping::handle_ping, privmsg::handle_privmsg, quit::handle_quit,
+        ping::handle_ping, privmsg::handle_privmsg, quit::handle_quit, user::handle_user,
     },
     message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender},
     replies::Reply,
@@ -91,9 +91,8 @@ pub fn run_server(
                         continue;
                     }
                 };
-                conn_context.user = Some(user.to_string());
-                conn_context.real_name = Some(realname.trim_start_matches(':').to_string());
-                None
+
+                handle_user(&server_host, &user, &realname, &mut conn_context)
             }
             ClientToServerCommand::Nick { nick, .. } => {
                 let mut conn_context = match connections.get_mut(&received.connection_id) {

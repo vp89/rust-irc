@@ -53,9 +53,9 @@ pub enum ClientToServerCommand {
         message: String,
     },
     User {
-        user: String,
-        mode: String,
-        realname: String,
+        user: Option<String>,
+        mode: Option<String>,
+        realname: Option<String>,
     },
     Pong,
     Quit {
@@ -178,31 +178,14 @@ impl ClientToServerMessage {
                     only_operators,
                 }
             }
-            // TODO move this into USER handler and make user/mode/realname Option<String>
             "USER" => {
-                let user = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "user".to_string(),
-                    }),
-                }?;
-
-                let mode = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "mode".to_string(),
-                    }),
-                }?;
+                let user = words.next().map(|s| s.to_owned());
+                let mode = words.next().map(|s| s.to_owned());
 
                 // skip the "unused" argument
                 words.next();
 
-                let realname = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "realname".to_string(),
-                    }),
-                }?;
+                let realname = words.next().map(|s| s.to_owned());
 
                 ClientToServerCommand::User {
                     user,
@@ -505,7 +488,7 @@ mod tests {
     }
 
     #[test]
-    fn message_parsing_ping_empty_token_parses_correctly() {
+    fn message_parsing_ping_empty_token_colon_parses_correctly() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PING :");
         let message = ClientToServerMessage::from_str(raw_str, connection_id)
@@ -521,10 +504,10 @@ mod tests {
         assert_eq!(expected, message);
     }
 
-    #[test]
-    fn message_parsing_ping_missing_token_errors() {
+    #[test_case("PING" ; "just_ping")]
+    #[test_case("PING " ; "ping_with_trailing_space")]
+    fn message_parsing_ping_missing_token_is_none(raw_str: &str) {
         let connection_id = Uuid::new_v4();
-        let raw_str = &format!("PING");
         let message = ClientToServerMessage::from_str(raw_str, connection_id)
             .expect("Failed to parse valid message");
         let expected = ClientToServerMessage {

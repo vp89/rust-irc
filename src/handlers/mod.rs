@@ -6,3 +6,4 @@ pub mod ping;
 pub mod privmsg;
 pub mod quit;
 pub mod who;
+pub mod user;
