@@ -39,7 +39,7 @@ pub enum ClientToServerCommand {
         token: Option<String>,
     },
     Join {
-        channels_to_join: Vec<String>,
+        channels_to_join: Option<Vec<String>>,
     },
     Mode {
         channel: Option<String>,
@@ -130,19 +130,12 @@ impl ClientToServerMessage {
                 let token = words.next().map(|s| s.trim_start_matches(':').to_owned());
                 ClientToServerCommand::Ping { token }
             }
-            // TODO move this into JOIN handler and make channels an Option<Vec<String>>
             "JOIN" => {
-                let raw_channels: String = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "channels".to_string(),
-                    }),
-                }?;
-
-                let channels_to_join = raw_channels.split(',').map(|s| s.to_string()).collect();
+                let channels_to_join: Option<Vec<String>> = words
+                    .next()
+                    .map(|s| s.to_owned().split(',').map(|s| s.to_string()).collect());
                 ClientToServerCommand::Join { channels_to_join }
             }
-            // TODO move this into PART handler and make channels an Option<Vec<String>>
             "PART" => {
                 let channels_to_leave: Option<Vec<String>> = words
                     .next()
@@ -281,7 +274,7 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Join {
-                channels_to_join: vec![expected_channel.clone()],
+                channels_to_join: Some(vec![expected_channel.clone()]),
             },
             connection_id,
         };
@@ -301,7 +294,7 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::Join {
-                channels_to_join: expected_channels.clone(),
+                channels_to_join: Some(expected_channels.clone()),
             },
             connection_id,
         };

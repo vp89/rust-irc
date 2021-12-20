@@ -6,10 +6,6 @@
 - Pass PINGPONG tests in irctest suite and add missing coverage
 - All missing parameter errors should be observed in the message handlers not in the message parsing
     - PRIVMSG
-    - JOIN
-    - PART
-    - MODE
-    - USER
 
 ## Testing
 - Look into how to build automated "end to end" tests to test things like connection shutdown behavior

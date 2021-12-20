@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::FromIterator,
+};
 
 use chrono::Utc;
 use uuid::Uuid;
@@ -12,8 +15,22 @@ pub fn handle_join(
     conn_context: &ConnectionContext,
     channels: &mut HashMap<String, ChannelContext>,
     connections: &HashMap<Uuid, ConnectionContext>,
-    channels_to_join: &[String],
+    channels_to_join: &Option<Vec<String>>,
 ) -> Option<HashMap<Uuid, Vec<Reply>>> {
+    let channels_to_join = match channels_to_join {
+        Some(c) => c,
+        None => {
+            return Some(HashMap::<_, _>::from_iter([(
+                conn_context.connection_id,
+                vec![Reply::ErrNeedMoreParams {
+                    server_host: server_host.to_owned(),
+                    nick: nick.to_owned(),
+                    command: "JOIN".to_string(),
+                }],
+            )]));
+        }
+    };
+
     let now = Utc::now();
     let mut map = HashMap::new();
 
