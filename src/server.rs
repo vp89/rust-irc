@@ -139,6 +139,7 @@ pub fn run_server(
                 conn_context,
             ),
             ClientToServerCommand::PrivMsg { channel, message } => handle_privmsg(
+                &server_host,
                 ctx_nick,
                 channel,
                 message,

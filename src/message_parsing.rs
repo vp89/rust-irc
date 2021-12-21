@@ -49,8 +49,8 @@ pub enum ClientToServerCommand {
         only_operators: bool,
     },
     PrivMsg {
-        channel: String,
-        message: String,
+        channel: Option<String>,
+        message: Option<String>,
     },
     User {
         user: Option<String>,
@@ -89,22 +89,10 @@ impl ClientToServerMessage {
         let command = match raw_command {
             // TODO move this into PRIVMSG handler and make message an Option<String>
             "PRIVMSG" => {
-                let channel = match words.next() {
-                    Some(s) => Ok(s.to_owned()),
-                    None => Err(MessageParsingErrorMissingParameter {
-                        param_name: "channel".to_string(),
-                    }),
-                }?;
-
-                let satisfies_guard = &' ';
-                match (&channel.chars().next(), satisfies_guard) {
-                    (None, c) | (Some(c), _) if c != &'#' => {
-                        Err(MessageParsingErrorInvalidChannelFormat {
-                            provided_channel: channel.to_string(),
-                        })
-                    }
-                    _ => Ok(()),
-                }?;
+                let channel = words
+                    .next()
+                    .map(|s| s.to_owned())
+                    .filter(|s| s.starts_with('#'));
 
                 let message = words
                     .map(|w| format!("{} ", w))
@@ -113,11 +101,7 @@ impl ClientToServerMessage {
                     .trim_end()
                     .to_string();
 
-                if message.is_empty() {
-                    return Err(MessageParsingErrorMissingParameter {
-                        param_name: "message".to_string(),
-                    });
-                };
+                let message = Some(message).filter(|m| !String::is_empty(m));
 
                 ClientToServerCommand::PrivMsg { channel, message }
             }
@@ -362,8 +346,8 @@ mod tests {
         let expected_message = ClientToServerMessage {
             source: None,
             command: ClientToServerCommand::PrivMsg {
-                channel: "#blah".to_string(),
-                message: "HI. THERE? HELLO!".to_string(),
+                channel: Some("#blah".to_string()),
+                message: Some("HI. THERE? HELLO!".to_string()),
             },
             connection_id,
         };
@@ -374,13 +358,19 @@ mod tests {
     }
 
     #[test]
-    fn message_parsing_privmsg_channel_missing_errors() {
+    fn message_parsing_privmsg_channel_missing_returns_none() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PRIVMSG");
-        let message = ClientToServerMessage::from_str(raw_str, connection_id);
-        let expected = Err(MessageParsingErrorMissingParameter {
-            param_name: "channel".to_string(),
-        });
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
+        let expected = ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::PrivMsg {
+                channel: None,
+                message: None,
+            },
+            connection_id,
+        };
         assert_eq!(expected, message);
     }
 
@@ -388,21 +378,34 @@ mod tests {
     fn message_parsing_privmsg_channel_missing_hash_errors() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PRIVMSG :foo");
-        let message = ClientToServerMessage::from_str(raw_str, connection_id);
-        let expected = Err(MessageParsingErrorInvalidChannelFormat {
-            provided_channel: ":foo".to_string(),
-        });
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
+        let expected = ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::PrivMsg {
+                channel: None,
+                message: None,
+            },
+            connection_id,
+        };
         assert_eq!(expected, message);
     }
 
     #[test_case("PRIVMSG #hey" ; "_errors")]
     #[test_case("PRIVMSG #hey " ; "_trailing_space_errors")]
-    fn message_parsing_privmsg_message_missing(raw_str: &str) {
+    fn message_parsing_privmsg_message_missing_channel_is_returned(raw_str: &str) {
         let connection_id = Uuid::new_v4();
-        let message = ClientToServerMessage::from_str(raw_str, connection_id);
-        let expected = Err(MessageParsingErrorMissingParameter {
-            param_name: "message".to_string(),
-        });
+        let message = ClientToServerMessage::from_str(raw_str, connection_id)
+            .expect("Failed to parse valid message");
+        let expected = ClientToServerMessage {
+            source: None,
+            command: ClientToServerCommand::PrivMsg {
+                channel: Some("#hey".to_string()),
+                message: None,
+            },
+            connection_id,
+        };
+
         assert_eq!(expected, message);
     }
 

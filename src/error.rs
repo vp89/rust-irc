@@ -13,8 +13,6 @@ pub enum Error {
     MessageReadingErrorStreamClosed,
     MessageReadingErrorIoFailure,
     MessageParsingErrorMissingCommand,
-    MessageParsingErrorMissingParameter { param_name: String },
-    MessageParsingErrorInvalidChannelFormat { provided_channel: String },
     ClientListenerFailed(IoError),
     ClientToServerChannelFailedToReceive(RecvError),
     TestErrorNoMoreMessagesInReceiver,
@@ -63,20 +61,6 @@ impl Display for Error {
             }
             Error::MessageParsingErrorMissingCommand => {
                 write!(f, "Error parsing message, command is missing")
-            }
-            Error::MessageParsingErrorMissingParameter { param_name } => {
-                write!(
-                    f,
-                    "Error parsing message, {} parameter is missing",
-                    param_name
-                )
-            }
-            Error::MessageParsingErrorInvalidChannelFormat { provided_channel } => {
-                write!(
-                    f,
-                    "Error parsing message, channel {} does not begin with #",
-                    provided_channel
-                )
             }
             Error::ClientListenerFailed(e) => {
                 write!(f, "Error from client listener {:?}", e)
