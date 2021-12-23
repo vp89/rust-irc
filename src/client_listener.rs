@@ -132,7 +132,6 @@ fn get_messages<T: BufRead>(reader: &mut T) -> Result<Vec<String>> {
             let mut split_messages: Vec<String> =
                 raw_payload.split("\r\n").map(|s| s.to_string()).collect();
 
-            // TODO create own Error kinds/type??
             if split_messages.len() <= 1 {
                 Err(MessageReadingErrorNoMessageSeparatorProvided)
             } else if split_messages.last().unwrap_or(&"BLAH".to_string()) != &format!("") {

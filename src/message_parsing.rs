@@ -87,7 +87,6 @@ impl ClientToServerMessage {
         raw_command = uppercased.as_ref();
 
         let command = match raw_command {
-            // TODO move this into PRIVMSG handler and make message an Option<String>
             "PRIVMSG" => {
                 let channel = words
                     .next()

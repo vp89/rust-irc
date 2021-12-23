@@ -142,7 +142,6 @@ pub enum Reply {
         server_host: String,
         nick: String,
     },
-    // TODO should these non-numerics be in a different file??
     Ping {
         server_host: String,
     },
