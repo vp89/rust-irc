@@ -1,5 +1,5 @@
 use std::net::SocketAddr;
-use std::sync::mpsc::Sender;
+use tokio::sync::mpsc::Sender;
 
 use crate::error::Error::*;
 use crate::replies::Reply;

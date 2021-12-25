@@ -6,9 +6,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+tokio = { version = "1", features = ["full"] }
 chrono = "0.4.19"
 uuid = { version = "0.8.2", features = [ "v4" ] }
 regex = "1.5.4"
+async-trait = "0.1.52"
+pin-project-lite = "0.2.0"
 
 [dev-dependencies]
 test-case = "1.2.1"

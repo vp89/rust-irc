@@ -1,24 +1,24 @@
-use std::io::Write;
-use std::net::TcpStream;
-use std::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Receiver;
 
+use tokio::io::AsyncWriteExt;
+use tokio::net::tcp::OwnedWriteHalf;
 use uuid::Uuid;
 
 use crate::replies::Reply;
 use crate::result::Result;
 
-pub fn run_sender(
-    receiver: Receiver<Reply>,
-    write_handle: &mut TcpStream,
+pub async fn run_sender(
+    mut receiver: Receiver<Reply>,
+    write_handle: &mut OwnedWriteHalf,
     connection_id: &Uuid,
 ) -> Result<()> {
     let sender_connection_id = connection_id;
 
     loop {
-        let received = match receiver.recv() {
-            Ok(r) => r,
+        let received = match receiver.recv().await {
+            Some(r) => r,
             // TODO RecvError just seems harmless just means channel has been dropped?
-            Err(_) => return Ok(()),
+            None => return Ok(()),
         };
 
         // The Quit message handler always sends at least 1 message
@@ -34,7 +34,7 @@ pub fn run_sender(
 
         let reply = &format!("{}{}", &received.to_string(), "\r\n");
 
-        if let Err(e) = write_handle.write_all(reply.as_bytes()) {
+        if let Err(e) = write_handle.write_all(reply.as_bytes()).await {
             println!("Error writing reply {} {:?}", reply, e);
         }
     }

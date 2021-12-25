@@ -1,31 +1,38 @@
-use crate::error::{Error::*, IoError};
+use crate::error::Error::*;
+use crate::replies::Reply;
 use crate::result::Result;
 use crate::{
     message_parsing::{ClientToServerCommand, ClientToServerMessage},
-    replies::Reply,
     ServerContext,
 };
 
-use std::sync::mpsc::Sender;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::{
     collections::VecDeque,
-    io::{self, BufRead, ErrorKind, Read, Write},
-    net::TcpStream,
+    io::{self, ErrorKind},
     time::Instant,
 };
+use tokio::io::AsyncBufRead;
+use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
+use tokio::net::tcp::OwnedReadHalf;
+use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
-pub fn run_listener(
+use pin_project_lite::pin_project;
+
+pub async fn run_listener(
     connection_id: &Uuid,
-    stream: &TcpStream,
+    stream: &mut OwnedReadHalf,
     server_sender: Sender<ClientToServerMessage>,
     context: ServerContext,
+    client_sender: Sender<Reply>,
 ) -> Result<()> {
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
     // there also needs to be a ping loop going on that can stop this loop too
-    let mut write_handle = stream;
-    let mut reader = io::BufReader::with_capacity(512, stream);
+
+    let mut reader = BufReader::with_capacity(512, stream);
     let mut last_pong = Instant::now();
     let mut waiting_for_pong = false;
     let server_host = &context.server_host;
@@ -44,19 +51,18 @@ pub fn run_listener(
             println!("Sending ping");
 
             waiting_for_pong = true;
-            let ping = format!(
-                "{}\r\n",
-                Reply::Ping {
-                    server_host: server_host.clone()
-                }
-                .to_string()
-            );
-            write_handle
-                .write_all(ping.as_bytes())
-                .map_err(|e| ClientListenerFailed(IoError(e)))?;
+
+            if let Err(e) = client_sender
+                .send(Reply::Ping {
+                    server_host: server_host.clone(),
+                })
+                .await
+            {
+                println!("Error forwarding PING to client sender channel {:?}", e);
+            }
         }
 
-        let raw_messages = match get_messages(&mut reader) {
+        let raw_messages = match get_messages(&mut reader).await {
             Ok(m) => m,
             Err(e) => match e {
                 MessageReadingErrorStreamClosed => return Ok(()),
@@ -87,14 +93,14 @@ pub fn run_listener(
                 // down to the server so it can tell other clients of the QUIT and perform
                 // any other necessary shutdown work
                 ClientToServerCommand::Quit { .. } => {
-                    if let Err(e) = server_sender.send(message.clone()) {
+                    if let Err(e) = server_sender.send(message.clone()).await {
                         println!("Error forwarding message to server {:?}", e);
                     }
 
                     return Ok(());
                 }
                 _ => {
-                    if let Err(e) = server_sender.send(message.clone()) {
+                    if let Err(e) = server_sender.send(message.clone()).await {
                         println!("Error forwarding message to server {:?}", e);
                     }
                 }
@@ -103,8 +109,8 @@ pub fn run_listener(
     }
 }
 
-fn get_messages<T: BufRead>(reader: &mut T) -> Result<Vec<String>> {
-    let bytes = match reader.fill_buf() {
+async fn get_messages<T: AsyncBufRead + Unpin>(reader: &mut T) -> Result<Vec<String>> {
+    let bytes = match reader.fill_buf().await {
         Ok(s) => Ok(s),
         Err(e) => {
             match e.kind() {
@@ -146,8 +152,8 @@ fn get_messages<T: BufRead>(reader: &mut T) -> Result<Vec<String>> {
     }
 }
 
-#[test]
-fn get_messages_reads_from_buffer() {
+#[tokio::test]
+async fn get_messages_reads_from_buffer() {
     let fake_buffer = b"Hello world\r\n".to_vec();
     let mut faked_responses = VecDeque::new();
     faked_responses.push_back(13);
@@ -156,14 +162,14 @@ fn get_messages_reads_from_buffer() {
         faked_responses,
     };
 
-    let result = get_messages(&mut faked_bufreader).unwrap();
+    let result = get_messages(&mut faked_bufreader).await.unwrap();
     assert_eq!(1, result.len());
     assert_eq!("Hello world", result.first().unwrap());
     assert_eq!(0, faked_bufreader.fake_buffer.len());
 }
 
-#[test]
-fn get_messages_multiplemessages_reads_from_buffer() {
+#[tokio::test]
+async fn get_messages_multiplemessages_reads_from_buffer() {
     let fake_buffer = b"Hello world\r\nFoobar\r\n".to_vec();
     let mut faked_responses = VecDeque::new();
     faked_responses.push_back(21);
@@ -172,15 +178,15 @@ fn get_messages_multiplemessages_reads_from_buffer() {
         faked_responses,
     };
 
-    let result = get_messages(&mut faked_bufreader).unwrap();
+    let result = get_messages(&mut faked_bufreader).await.unwrap();
     assert_eq!(2, result.len());
     assert_eq!("Hello world", result.first().unwrap());
     assert_eq!("Foobar", result[1]);
     assert_eq!(0, faked_bufreader.fake_buffer.len());
 }
 
-#[test]
-fn get_messages_multiplemessages_noterminator_errors() {
+#[tokio::test]
+async fn get_messages_multiplemessages_noterminator_errors() {
     let fake_buffer = b"Hello world\r\nFoobar".to_vec();
     let mut faked_responses = VecDeque::new();
     faked_responses.push_back(19);
@@ -190,6 +196,7 @@ fn get_messages_multiplemessages_noterminator_errors() {
     };
 
     let result = get_messages(&mut faked_bufreader)
+        .await
         .expect_err("Testing expect an error to be returned here");
     assert_eq!(
         "Error reading message(s), last message is missing separator",
@@ -197,8 +204,8 @@ fn get_messages_multiplemessages_noterminator_errors() {
     );
 }
 
-#[test]
-fn get_messages_nolineterminator_errors() {
+#[tokio::test]
+async fn get_messages_nolineterminator_errors() {
     let fake_buffer = b"Hello world".to_vec();
     let mut faked_responses = VecDeque::new();
     faked_responses.push_back(11);
@@ -208,6 +215,7 @@ fn get_messages_nolineterminator_errors() {
     };
 
     let result = get_messages(&mut faked_bufreader)
+        .await
         .expect_err("Testing expect an error to be returned here");
     assert_eq!(
         "Error reading message(s), no message separator provided",
@@ -215,8 +223,8 @@ fn get_messages_nolineterminator_errors() {
     );
 }
 
-#[test]
-fn get_messages_emptybuffer_errors() {
+#[tokio::test]
+async fn get_messages_emptybuffer_errors() {
     let fake_buffer = b"".to_vec();
     let mut faked_responses = VecDeque::new();
     faked_responses.push_back(0);
@@ -225,34 +233,48 @@ fn get_messages_emptybuffer_errors() {
         faked_responses,
     };
 
-    get_messages(&mut faked_bufreader).expect_err("Testing expect an error to be returned here");
+    get_messages(&mut faked_bufreader)
+        .await
+        .expect_err("Testing expect an error to be returned here");
 }
 
-struct FakeBufReader {
-    fake_buffer: Vec<u8>,
-    faked_responses: VecDeque<usize>, // implement as a queue so you can mock which bytes returned on each read call
+pin_project! {
+    struct FakeBufReader {
+        fake_buffer: Vec<u8>,
+        faked_responses: VecDeque<usize>, // implement as a queue so you can mock which bytes returned on each read call
+    }
 }
 
-impl BufRead for FakeBufReader {
-    fn fill_buf(&mut self) -> io::Result<&[u8]> {
-        match self.faked_responses.pop_front() {
-            Some(b) => Ok(&self.fake_buffer[..b]),
-            None => Err(io::Error::new(
+impl AsyncBufRead for FakeBufReader {
+    fn poll_fill_buf(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<io::Result<&[u8]>> {
+        let me = self.project();
+
+        match me.faked_responses.pop_front() {
+            Some(b) => Poll::Ready(Ok(&me.fake_buffer[..b])),
+            None => Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
                 "bad test setup",
-            )),
+            ))),
         }
     }
 
-    fn consume(&mut self, amt: usize) {
-        self.fake_buffer.drain(..amt);
+    fn consume(self: Pin<&mut FakeBufReader>, amt: usize) {
+        let me = self.project();
+        me.fake_buffer.drain(..amt);
     }
 }
 
 // just adding this to make compiler happy, for testing we only need
 // the methods in BufRead
-impl Read for FakeBufReader {
-    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+impl AsyncRead for FakeBufReader {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        _buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<io::Result<()>> {
         todo!()
     }
 }

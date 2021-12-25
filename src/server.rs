@@ -15,10 +15,10 @@ use crate::{
 use crate::handlers::who::*;
 use crate::result::Result;
 
-pub fn run_server(
-    server_context: &ServerContext,
-    receiver_channel: &dyn ReceiverWrapper<ClientToServerMessage>,
-) -> Result<()> {
+pub async fn run_server<T>(server_context: &ServerContext, receiver_channel: &mut T) -> Result<()>
+where
+    T: ReceiverWrapper<ClientToServerMessage>,
+{
     let mut connections = HashMap::new();
     let mut sender_channels = HashMap::new();
     let server_host = server_context.server_host.clone();
@@ -26,7 +26,12 @@ pub fn run_server(
     let mut channels: HashMap<String, ChannelContext> = HashMap::new();
 
     loop {
-        let received = receiver_channel.receive()?;
+        let received = match receiver_channel.receive().await {
+            Some(r) => r,
+            None => {
+                return Ok(());
+            }
+        };
 
         // This should always be the first command received for any given connection
         // and thus the only one where there is no connection context available.
@@ -159,12 +164,12 @@ pub fn run_server(
         };
 
         if let Some(replies) = replies {
-            send_replies(replies, &sender_channels)
+            send_replies(replies, &sender_channels).await
         }
     }
 }
 
-fn send_replies(
+async fn send_replies(
     replies_per_user: HashMap<Uuid, Vec<Reply>>,
     sender_channels: &HashMap<Uuid, ReplySender>,
 ) {
@@ -178,7 +183,7 @@ fn send_replies(
         };
 
         for reply in replies {
-            if let Err(e) = sender.send(reply) {
+            if let Err(e) = sender.try_send(reply) {
                 println!("Error sending replies {:?}", e);
                 return;
             }
@@ -189,20 +194,22 @@ fn send_replies(
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
+    use tokio::time::Timeout;
     use uuid::Uuid;
 
     use super::*;
-    use crate::channels::FakeChannelReceiver;
+    use crate::channels::{FakeChannelReceiver, FakeMessagesWrapper, FakeReceiveCountWrapper};
     use crate::message_parsing::ReplySender;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-    use std::sync::mpsc::{self};
+    use std::time::Duration;
+    use tokio::sync::mpsc::{self};
 
-    #[test]
-    pub fn server_nickcommandsent_replystormissent() {
+    #[tokio::test]
+    pub async fn server_nickcommandsent_replystormissent() {
         // Arrange
-        let (sender, test_receiver) = mpsc::channel();
+        let (sender, mut test_receiver) = mpsc::channel(1000);
         let connection_id = Uuid::new_v4();
 
         let mut messages = VecDeque::new();
@@ -226,9 +233,9 @@ mod tests {
             connection_id,
         });
 
-        let receiver = FakeChannelReceiver {
-            faked_messages: RefCell::new(Box::new(messages)),
-            receive_count: RefCell::new(0),
+        let mut receiver = FakeChannelReceiver {
+            faked_messages: FakeMessagesWrapper(RefCell::new(Box::new(messages))),
+            receive_count: FakeReceiveCountWrapper(RefCell::new(0)),
         };
 
         let context = ServerContext {
@@ -239,18 +246,16 @@ mod tests {
         };
 
         // Act
-        let result = run_server(&context, &receiver);
+        let result = run_server(&context, &mut receiver).await;
 
         // Assert
-        if let Ok(()) = result {
-            assert!(false)
+        assert_eq!(&3, &receiver.receive_count.0.take());
+
+        let mut received = vec![];
+        while let Ok(m) = test_receiver.try_recv() {
+            received.push(m);
         }
-        assert_eq!(3, receiver.receive_count.take());
-        // try_iter is required because the sender channel is kept alive due
-        // to cloning the Arc to the connections map
-        // try_iter will yield whatever is in the receiver even
-        // though the sender hasn't hung up whereas iter would block
-        // because the sender hasn't hung up
-        assert_eq!(16, test_receiver.try_iter().count());
+
+        assert_eq!(16, received.len());
     }
 }
