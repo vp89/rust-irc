@@ -14,7 +14,7 @@
 
 ## Efficiency
 - Look at async to keep thread usage down (currently 2+2N where N is # of connections)
-- Reduce file descriptor usage per connection from 2 to 1 (single thread or "task" per connection to avoid needing to clone)
+
 
 ## Error handling
 

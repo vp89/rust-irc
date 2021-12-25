@@ -183,7 +183,7 @@ async fn send_replies(
         };
 
         for reply in replies {
-            if let Err(e) = sender.try_send(reply) {
+            if let Err(e) = sender.send(reply).await {
                 println!("Error sending replies {:?}", e);
                 return;
             }

@@ -24,6 +24,7 @@ use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, Reply
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
+    console_subscriber::init();
     let server_host = "localhost".to_string();
     let context = ServerContext {
         start_time: Utc::now(),
