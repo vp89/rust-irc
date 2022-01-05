@@ -90,17 +90,17 @@ where
                 mode: _,
                 realname,
             } => {
-                let mut conn_context = match connections.get_mut(&received.connection_id) {
+                let conn_context = match connections.get_mut(&received.connection_id) {
                     Some(c) => c,
                     None => {
                         continue;
                     }
                 };
 
-                handle_user(&server_host, user, realname, &mut conn_context)
+                handle_user(&server_host, user, realname, conn_context)
             }
             ClientToServerCommand::Nick { nick, .. } => {
-                let mut conn_context = match connections.get_mut(&received.connection_id) {
+                let conn_context = match connections.get_mut(&received.connection_id) {
                     Some(c) => c,
                     None => {
                         continue;
@@ -112,7 +112,7 @@ where
                     nick,
                     &server_context.version,
                     &server_context.start_time,
-                    &mut conn_context,
+                    conn_context,
                 )
             }
             ClientToServerCommand::Join { channels_to_join } => handle_join(
@@ -194,7 +194,6 @@ async fn send_replies(
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
-    use tokio::time::Timeout;
     use uuid::Uuid;
 
     use super::*;
@@ -203,7 +202,6 @@ mod tests {
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-    use std::time::Duration;
     use tokio::sync::mpsc::{self};
 
     #[tokio::test]
@@ -246,7 +244,7 @@ mod tests {
         };
 
         // Act
-        let result = run_server(&context, &mut receiver).await;
+        run_server(&context, &mut receiver).await.unwrap();
 
         // Assert
         assert_eq!(&3, &receiver.receive_count.0.take());

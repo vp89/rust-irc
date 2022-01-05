@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::io;
-use std::sync::mpsc::RecvError;
 
 // should these be separate enums? what is idiomatic way to manage a large
 // error enum?
@@ -13,9 +12,6 @@ pub enum Error {
     MessageReadingErrorStreamClosed,
     MessageReadingErrorIoFailure,
     MessageParsingErrorMissingCommand,
-    ClientListenerFailed(IoError),
-    ClientToServerChannelFailedToReceive(RecvError),
-    TestErrorNoMoreMessagesInReceiver,
 }
 
 // there isn't an impl for PartialEq for io::Error (probably for good reason)
@@ -61,19 +57,6 @@ impl Display for Error {
             }
             Error::MessageParsingErrorMissingCommand => {
                 write!(f, "Error parsing message, command is missing")
-            }
-            Error::ClientListenerFailed(e) => {
-                write!(f, "Error from client listener {:?}", e)
-            }
-            Error::ClientToServerChannelFailedToReceive(e) => {
-                write!(
-                    f,
-                    "Error receiving inbound message to server worker {:?}",
-                    e
-                )
-            }
-            Error::TestErrorNoMoreMessagesInReceiver => {
-                write!(f, "")
             }
         }
     }
