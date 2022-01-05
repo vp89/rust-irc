@@ -8,6 +8,7 @@ mod replies;
 mod result;
 mod server;
 mod util;
+mod settings;
 
 use chrono::{DateTime, Utc};
 use std::collections::HashSet;
@@ -19,22 +20,23 @@ use tokio::{
     sync::mpsc::{self, Receiver},
 };
 use uuid::Uuid;
+use settings::Settings;
 
 use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender};
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    let server_host = "localhost".to_string();
+    let settings = Settings::new().unwrap();
+
+    println!("Starting server on {}:{}", settings.host, settings.port);
+
     let context = ServerContext {
         start_time: Utc::now(),
-        server_host: server_host.clone(),
-        version: "0.0.1".to_string(),
-        ping_frequency: Duration::from_secs(60),
+        server_host: settings.host.clone(),
+        ping_frequency: Duration::from_secs(settings.ping_frequency_secs),
     };
 
-    println!("Starting server on {}:6667", server_host);
-
-    let listener = TcpListener::bind(format!("{}:6667", server_host)).await?;
+    let listener = TcpListener::bind(format!("{}:{}", settings.host, settings.port)).await?;
     let mut listener_handles = vec![];
     let mut sender_handles = vec![];
 
