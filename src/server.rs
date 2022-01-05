@@ -197,9 +197,8 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::channels::{FakeChannelReceiver, FakeMessagesWrapper, FakeReceiveCountWrapper};
+    use crate::channels::FakeChannelReceiver;
     use crate::message_parsing::ReplySender;
-    use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
     use tokio::sync::mpsc::{self};
@@ -232,8 +231,8 @@ mod tests {
         });
 
         let mut receiver = FakeChannelReceiver {
-            faked_messages: FakeMessagesWrapper(RefCell::new(Box::new(messages))),
-            receive_count: FakeReceiveCountWrapper(RefCell::new(0)),
+            faked_messages: Box::new(messages),
+            receive_count: 0,
         };
 
         let context = ServerContext {
@@ -247,7 +246,7 @@ mod tests {
         run_server(&context, &mut receiver).await.unwrap();
 
         // Assert
-        assert_eq!(&3, &receiver.receive_count.0.take());
+        assert_eq!(&3, &receiver.receive_count);
 
         let mut received = vec![];
         while let Ok(m) = test_receiver.try_recv() {

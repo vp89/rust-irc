@@ -4,9 +4,6 @@
 		{
 			"type": "cargo",
 			"command": "build",
-			"env": {
-				"RUSTFLAGS": "--cfg tokio_unstable"
-			},
 			"problemMatcher": [
 				"$rustc"
 			],
