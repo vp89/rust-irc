@@ -22,4 +22,4 @@
 - Read up on best practices RE: structuring modules and refactor accordingly 
 
 ## Configurability
-- Make current server params configurable via file?
+- Make MOTD configurable

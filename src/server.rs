@@ -108,6 +108,7 @@ where
                 };
 
                 handle_nick(
+                    server_context,
                     &server_host,
                     nick,
                     &server_context.version,
@@ -240,6 +241,7 @@ mod tests {
             server_host: "localhost".to_string(),
             version: "0.0.1".to_string(),
             ping_frequency: std::time::Duration::from_secs(60),
+            motd_lines: vec![],
         };
 
         // Act
@@ -253,6 +255,6 @@ mod tests {
             received.push(m);
         }
 
-        assert_eq!(16, received.len());
+        assert_eq!(15, received.len());
     }
 }

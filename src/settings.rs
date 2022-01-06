@@ -1,4 +1,4 @@
-use config::{ConfigError, Config, File};
+use config::{Config, ConfigError, File};
 use serde_derive::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -6,6 +6,7 @@ pub struct Settings {
     pub host: String,
     pub port: u32,
     pub ping_frequency_secs: u64,
+    pub motd_lines: Vec<String>,
 }
 
 impl Settings {

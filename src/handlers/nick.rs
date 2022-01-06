@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{replies::Reply, ConnectionContext};
+use crate::{replies::Reply, ConnectionContext, ServerContext};
 
 pub fn handle_nick(
+    server_context: &ServerContext,
     server_host: &str,
     nick: &Option<String>,
     ctx_version: &str,
@@ -109,12 +110,15 @@ pub fn handle_nick(
         server_host: server_host.to_owned(),
         nick: nick.clone(),
     });
-    // TODO proper configurable MOTD
-    replies.push(Reply::Motd {
-        server_host: server_host.to_owned(),
-        nick: nick.clone(),
-        line: "Foobar".to_string(),
-    });
+
+    for line in &server_context.motd_lines {
+        replies.push(Reply::Motd {
+            server_host: server_host.to_owned(),
+            nick: nick.clone(),
+            line: line.to_string(),
+        });
+    }
+
     replies.push(Reply::EndOfMotd {
         server_host: server_host.to_owned(),
         nick: nick.clone(),

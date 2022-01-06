@@ -7,10 +7,11 @@ mod message_parsing;
 mod replies;
 mod result;
 mod server;
-mod util;
 mod settings;
+mod util;
 
 use chrono::{DateTime, Utc};
+use settings::Settings;
 use std::collections::HashSet;
 use std::io;
 use std::net::SocketAddr;
@@ -20,7 +21,6 @@ use tokio::{
     sync::mpsc::{self, Receiver},
 };
 use uuid::Uuid;
-use settings::Settings;
 
 use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender};
 
@@ -33,15 +33,16 @@ async fn main() -> io::Result<()> {
     let context = ServerContext {
         start_time: Utc::now(),
         server_host: settings.host.clone(),
+        version: "0.0.1".to_string(),
         ping_frequency: Duration::from_secs(settings.ping_frequency_secs),
+        motd_lines: settings.motd_lines,
     };
 
     let listener = TcpListener::bind(format!("{}:{}", settings.host, settings.port)).await?;
     let mut listener_handles = vec![];
     let mut sender_handles = vec![];
 
-    // TODO capacity is arbitrary, whats a good value?
-    let (sender_channel, mut receiver_channel) = mpsc::channel(10);
+    let (sender_channel, mut receiver_channel) = mpsc::channel(1000);
     let server_context = context.clone();
     let server_handle = tokio::spawn(async move {
         if let Err(e) = server::run_server::<Receiver<ClientToServerMessage>>(
@@ -63,8 +64,7 @@ async fn main() -> io::Result<()> {
 
                 // pass this around in messages to grab details about this connection/user
                 let connection_id = Uuid::new_v4();
-                // TODO capacity is arbitrary, whats a good value?
-                let (client_sender_channel, client_receiver_channel) = mpsc::channel(10);
+                let (client_sender_channel, client_receiver_channel) = mpsc::channel(1000);
                 let cloned_client_sender_channel = client_sender_channel.clone();
                 let cloned_client_sender_channel_2 = client_sender_channel.clone();
 
@@ -172,6 +172,7 @@ pub struct ServerContext {
     pub server_host: String,
     pub version: String,
     pub ping_frequency: Duration,
+    pub motd_lines: Vec<String>,
 }
 
 #[derive(Default)]
