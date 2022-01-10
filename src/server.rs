@@ -1,260 +1,148 @@
-use std::collections::HashMap;
+use std::time::Duration;
+
+use chrono::{Utc};
+use tokio::{net::TcpListener, sync::mpsc::{self, Receiver}};
 use uuid::Uuid;
 
-use crate::{
-    channels::ReceiverWrapper,
-    handlers::{
-        join::handle_join, mode::handle_mode, nick::handle_nick, part::handle_part,
-        ping::handle_ping, privmsg::handle_privmsg, quit::handle_quit, user::handle_user,
-    },
-    message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender},
-    replies::Reply,
-    ChannelContext, ConnectionContext, ServerContext,
-};
+use crate::{ServerContext, message_handler, message_parsing::{ClientToServerMessage, ClientToServerCommand, ReplySender}, client_sender, client_listener, result::{Result}, settings::Settings, error::Error::ErrorAcceptingConnection};
 
-use crate::handlers::who::*;
-use crate::result::Result;
+pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Result<()> {
+    let context = ServerContext {
+        start_time: Utc::now(),
+        server_host: settings.host.clone(),
+        version: "0.0.1".to_string(),
+        ping_frequency: Duration::from_secs(settings.ping_frequency_secs),
+        motd_lines: settings.motd_lines.clone(),
+    };
 
-pub async fn run_server<T>(server_context: &ServerContext, receiver_channel: &mut T) -> Result<()>
-where
-    T: ReceiverWrapper<ClientToServerMessage>,
-{
-    let mut connections = HashMap::new();
-    let mut sender_channels = HashMap::new();
-    let server_host = server_context.server_host.clone();
-    let empty_str = &String::from("");
-    let mut channels: HashMap<String, ChannelContext> = HashMap::new();
+    println!("Starting server on {}:{}", settings.host, settings.port);
+
+    let listener = TcpListener::bind(format!("{}:{}", settings.host, settings.port)).await.map_err(|e| ErrorAcceptingConnection)?;
+    let mut listener_handles = vec![];
+    let mut sender_handles = vec![];
+
+    let (sender_channel, mut receiver_channel) = mpsc::channel(1000);
+    let server_context = context.clone();
+    let server_handle = tokio::spawn(async move {
+        if let Err(e) = message_handler::run_message_handler::<Receiver<ClientToServerMessage>>(
+            &server_context,
+            &mut receiver_channel,
+        )
+        .await
+        {
+            println!("Error returned from server worker {:?}", e);
+        }
+    });
 
     loop {
-        let received = match receiver_channel.receive().await {
-            Some(r) => r,
-            None => {
-                return Ok(());
-            }
-        };
-
-        // This should always be the first command received for any given connection
-        // and thus the only one where there is no connection context available.
-        // We can handle it here instead of in the match below so that the rest of the
-        // commands can just deal with a ConnectionContext instead of an Option<ConnectionContext>
-        if let ClientToServerCommand::Connected { sender, client_ip } = &received.command {
-            let ctx = ConnectionContext {
-                connection_id: received.connection_id,
-                nick: None,
-                client: None,
-                user: None,
-                real_name: None,
-                client_host: *client_ip,
-            };
-            connections.insert(received.connection_id, ctx);
-            sender_channels.insert(received.connection_id, sender.clone());
-            continue;
-        }
-
-        let conn_context = match connections.get(&received.connection_id) {
-            Some(c) => c,
-            None => {
-                println!(
-                    "Unexpected message sequence, received a {:?} message for {} before properly establishing a connection",
-                    received.command,
-                    received.connection_id
-                );
-
-                continue;
-            }
-        };
-
-        let ctx_client = conn_context.client.as_ref().unwrap_or(empty_str);
-        let ctx_nick = conn_context.nick.as_ref().unwrap_or(empty_str);
-
-        let replies = match &received.command {
-            ClientToServerCommand::Disconnected => {
-                if connections.remove(&received.connection_id).is_none() {
-                    println!(
-                        "Disconnected connection {} already removed",
-                        &received.connection_id
-                    );
+        let (stream, _) = tokio::select! {
+            res = listener.accept() => match res {
+                Ok(res) => res,
+                Err(e) => {
+                    println!("TODO");
+                    break;
                 }
-
-                if sender_channels.remove(&received.connection_id).is_none() {
-                    println!(
-                        "Disconnected connection {} already removed from sender channels",
-                        &received.connection_id
-                    );
-                }
-
-                None
-            }
-            ClientToServerCommand::User {
-                user,
-                mode: _,
-                realname,
-            } => {
-                let conn_context = match connections.get_mut(&received.connection_id) {
-                    Some(c) => c,
-                    None => {
-                        continue;
-                    }
-                };
-
-                handle_user(&server_host, user, realname, conn_context)
-            }
-            ClientToServerCommand::Nick { nick, .. } => {
-                let conn_context = match connections.get_mut(&received.connection_id) {
-                    Some(c) => c,
-                    None => {
-                        continue;
-                    }
-                };
-
-                handle_nick(
-                    server_context,
-                    &server_host,
-                    nick,
-                    &server_context.version,
-                    &server_context.start_time,
-                    conn_context,
-                )
-            }
-            ClientToServerCommand::Join { channels_to_join } => handle_join(
-                &server_host,
-                ctx_nick,
-                ctx_client,
-                conn_context,
-                &mut channels,
-                &connections,
-                channels_to_join,
-            ),
-            ClientToServerCommand::Part { channels_to_leave } => handle_part(
-                &server_host,
-                ctx_nick,
-                ctx_client,
-                conn_context,
-                &mut channels,
-                channels_to_leave,
-            ),
-            ClientToServerCommand::Mode { channel } => {
-                handle_mode(&server_host, ctx_nick, channel, conn_context)
-            }
-            ClientToServerCommand::Who { mask, .. } => handle_who(
-                mask,
-                &server_host,
-                ctx_nick,
-                &channels,
-                &connections,
-                conn_context,
-            ),
-            ClientToServerCommand::PrivMsg { channel, message } => handle_privmsg(
-                &server_host,
-                ctx_nick,
-                channel,
-                message,
-                conn_context,
-                &channels,
-                &connections,
-            ),
-            ClientToServerCommand::Quit { message } => {
-                handle_quit(message, &mut channels, &connections, received.connection_id)
-            }
-            ClientToServerCommand::Connected { .. } => None,
-            ClientToServerCommand::Unhandled { .. } => None,
-            ClientToServerCommand::Ping { token } => {
-                handle_ping(&server_host, ctx_nick, token, conn_context)
-            }
-            ClientToServerCommand::Pong {} => None,
+            },
+            _ = shutdown_receiver.recv() => { break; }
         };
 
-        if let Some(replies) = replies {
-            send_replies(replies, &sender_channels).await
-        }
-    }
-}
+        let server_context = context.clone();
+        let cloned_server_sender_channel_listener = sender_channel.clone();
+        let cloned_server_sender_channel_sender = sender_channel.clone();
 
-async fn send_replies(
-    replies_per_user: HashMap<Uuid, Vec<Reply>>,
-    sender_channels: &HashMap<Uuid, ReplySender>,
-) {
-    for (connection_id, replies) in replies_per_user {
-        let sender = match sender_channels.get(&connection_id) {
-            Some(sender) => &sender.0,
-            None => {
-                // TODO
-                continue;
+        // pass this around in messages to grab details about this connection/user
+        let connection_id = Uuid::new_v4();
+        let (client_sender_channel, client_receiver_channel) = mpsc::channel(1000);
+        let cloned_client_sender_channel = client_sender_channel.clone();
+        let cloned_client_sender_channel_2 = client_sender_channel.clone();
+
+        let addr = stream.peer_addr().ok();
+        let (mut read_handle, mut write_handle) = stream.into_split();
+
+        sender_handles.push(tokio::spawn(async move {
+            if let Err(e) = client_sender::run_sender(
+                client_receiver_channel,
+                &mut write_handle,
+                &connection_id,
+            )
+            .await
+            {
+                println!("Error returned from client sender {:?}", e)
             }
-        };
 
-        for reply in replies {
-            if let Err(e) = sender.send(reply).await {
-                println!("Error sending replies {:?}", e);
+            write_handle.forget();
+        }));
+
+        listener_handles.push(tokio::spawn(async move {
+            // TODO There is no timeout on the read handle but we need the listener to stop after some seconds
+            // figure out an alternate here
+            /*
+            if let Err(e) = stream.set_read_timeout(Some(server_context.ping_frequency)) {
+                println!("Error setting read timeout {:?}", e);
                 return;
             }
+            */
+
+            if let Err(e) = cloned_server_sender_channel_listener
+                .send(ClientToServerMessage {
+                    source: None,
+                    command: ClientToServerCommand::Connected {
+                        sender: ReplySender(cloned_client_sender_channel),
+                        client_ip: addr,
+                    },
+                    connection_id,
+                })
+                .await
+            {
+                println!("Error sending connection initialization message {:?}", e)
+            };
+
+            if let Err(e) = client_listener::run_listener(
+                &connection_id,
+                &mut read_handle,
+                cloned_server_sender_channel_listener,
+                server_context,
+                cloned_client_sender_channel_2,
+            )
+            .await
+            {
+                println!("Error returned from client listener {:?}", e)
+            }
+
+            if let Err(e) = cloned_server_sender_channel_sender
+                .send(ClientToServerMessage {
+                    source: None,
+                    command: ClientToServerCommand::Disconnected,
+                    connection_id,
+                })
+                .await
+            {
+                println!(
+                    "Error sending disconnected message for connection_id {} {:?}",
+                    connection_id, e
+                );
+            }
+
+            // TODO -> IS THIS RIGHT??
+            drop(read_handle);
+        }));
+    }
+
+    for handle in listener_handles {
+        if let Err(e) = handle.await {
+            println!("Error joining client listener thread handle {:?}", e);
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use chrono::Utc;
-    use uuid::Uuid;
-
-    use super::*;
-    use crate::channels::FakeChannelReceiver;
-    use crate::message_parsing::ReplySender;
-    use std::collections::VecDeque;
-    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-    use tokio::sync::mpsc::{self};
-
-    #[tokio::test]
-    pub async fn server_nickcommandsent_replystormissent() {
-        // Arrange
-        let (sender, mut test_receiver) = mpsc::channel(1000);
-        let connection_id = Uuid::new_v4();
-
-        let mut messages = VecDeque::new();
-        messages.push_back(ClientToServerMessage {
-            source: None,
-            command: ClientToServerCommand::Connected {
-                sender: ReplySender(sender),
-                client_ip: Some(SocketAddr::V4(SocketAddrV4::new(
-                    Ipv4Addr::new(127, 0, 0, 1),
-                    1234,
-                ))),
-            },
-            connection_id,
-        });
-
-        messages.push_back(ClientToServerMessage {
-            source: None,
-            command: ClientToServerCommand::Nick {
-                nick: Some("JOE".to_string()),
-            },
-            connection_id,
-        });
-
-        let mut receiver = FakeChannelReceiver {
-            faked_messages: Box::new(messages),
-            receive_count: 0,
-        };
-
-        let context = ServerContext {
-            start_time: Utc::now(),
-            server_host: "localhost".to_string(),
-            version: "0.0.1".to_string(),
-            ping_frequency: std::time::Duration::from_secs(60),
-            motd_lines: vec![],
-        };
-
-        // Act
-        run_server(&context, &mut receiver).await.unwrap();
-
-        // Assert
-        assert_eq!(&3, &receiver.receive_count);
-
-        let mut received = vec![];
-        while let Ok(m) = test_receiver.try_recv() {
-            received.push(m);
+    for handle in sender_handles {
+        if let Err(e) = handle.await {
+            println!("Error joining client sender thread handle {:?}", e);
         }
-
-        assert_eq!(15, received.len());
     }
+
+    if let Err(e) = server_handle.await {
+        println!("Error joining server thread handle {:?}", e);
+    }
+
+    Ok(())
 }
