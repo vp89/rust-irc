@@ -1,12 +1,15 @@
 use std::time::Duration;
 
 use chrono::{Utc};
-use tokio::{net::TcpListener, sync::mpsc::{self, Receiver}};
+use tokio::{net::TcpListener, sync::{broadcast, mpsc, mpsc::{Receiver}}};
 use uuid::Uuid;
 
 use crate::{ServerContext, message_handler, message_parsing::{ClientToServerMessage, ClientToServerCommand, ReplySender}, client_sender, client_listener, result::{Result}, settings::Settings, error::Error::ErrorAcceptingConnection};
 
-pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Result<()> {
+pub async fn start_server(
+    settings: &Settings,
+    mut program_shutdown_receiver: Receiver<()>
+) -> Result<()> {
     let context = ServerContext {
         start_time: Utc::now(),
         server_host: settings.host.clone(),
@@ -17,16 +20,22 @@ pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<(
 
     println!("Starting server on {}:{}", settings.host, settings.port);
 
-    let listener = TcpListener::bind(format!("{}:{}", settings.host, settings.port)).await.map_err(|e| ErrorAcceptingConnection)?;
+    let listener = TcpListener::bind(format!("{}:{}", settings.host, settings.port)).await.map_err(|_| ErrorAcceptingConnection)?;
+
     let mut listener_handles = vec![];
     let mut sender_handles = vec![];
 
     let (sender_channel, mut receiver_channel) = mpsc::channel(1000);
     let server_context = context.clone();
+
+    let (server_shutdown_sender, mut server_shutdown_receiver) = broadcast::channel::<()>(1);
+    let message_handler_shutdown_recv = server_shutdown_sender.subscribe();
+
     let server_handle = tokio::spawn(async move {
         if let Err(e) = message_handler::run_message_handler::<Receiver<ClientToServerMessage>>(
             &server_context,
             &mut receiver_channel,
+            message_handler_shutdown_recv
         )
         .await
         {
@@ -38,12 +47,18 @@ pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<(
         let (stream, _) = tokio::select! {
             res = listener.accept() => match res {
                 Ok(res) => res,
-                Err(e) => {
+                Err(_) => {
                     println!("TODO");
                     break;
                 }
             },
-            _ = shutdown_receiver.recv() => { break; }
+            _ = program_shutdown_receiver.recv() => {
+                if let Err(_) = server_shutdown_sender.send(()) {
+                    println!("TODO"); // TODO
+                }
+
+                break;
+            }
         };
 
         let server_context = context.clone();
@@ -129,16 +144,22 @@ pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<(
     }
 
     for handle in listener_handles {
+        println!("waiting for listener task to finish");
+
         if let Err(e) = handle.await {
             println!("Error joining client listener thread handle {:?}", e);
         }
     }
 
     for handle in sender_handles {
+        println!("waiting for sender task to finish");
+
         if let Err(e) = handle.await {
             println!("Error joining client sender thread handle {:?}", e);
         }
     }
+
+    println!("waiting for message handler task to finish");
 
     if let Err(e) = server_handle.await {
         println!("Error joining server thread handle {:?}", e);

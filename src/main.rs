@@ -18,18 +18,15 @@ use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::{
-    net::TcpListener,
-    sync::mpsc::{self, Receiver},
+    sync::mpsc::{self},
     signal
 };
 use uuid::Uuid;
 
-use crate::message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender};
-
 #[tokio::main]
 async fn main() -> io::Result<()> {
     let settings = Settings::new().unwrap();
-    let (shutdown_sender, mut shutdown_receiver) = mpsc::channel::<()>(1);
+    let (shutdown_sender, shutdown_receiver) = mpsc::channel::<()>(1);
 
     tokio::spawn(async move {
         if let Err(e) = server::start_server(&settings, shutdown_receiver).await {
@@ -44,8 +41,9 @@ async fn main() -> io::Result<()> {
         }
     }
 
-    // TODO error handling
-    shutdown_sender.send(()).await;
+    if let Err(_) = shutdown_sender.send(()).await {
+        println!("Unable to propagate shutdown signal to the rest of the program");
+    }
 
     Ok(())
 }

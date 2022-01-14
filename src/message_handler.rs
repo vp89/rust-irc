@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use tokio::sync::broadcast::Receiver;
 use uuid::Uuid;
 
 use crate::{
@@ -15,7 +16,7 @@ use crate::{
 use crate::handlers::who::*;
 use crate::result::Result;
 
-pub async fn run_message_handler<T>(server_context: &ServerContext, receiver_channel: &mut T) -> Result<()>
+pub async fn run_message_handler<T>(server_context: &ServerContext, receiver_channel: &mut T, mut shutdown_receiver: Receiver<()>) -> Result<()>
 where
     T: ReceiverWrapper<ClientToServerMessage>,
 {
@@ -26,9 +27,14 @@ where
     let mut channels: HashMap<String, ChannelContext> = HashMap::new();
 
     loop {
-        let received = match receiver_channel.receive().await {
-            Some(r) => r,
-            None => {
+        let received = tokio::select! {
+            received = receiver_channel.receive() => match received {
+                Some(r) => r,
+                None => {
+                    return Ok(());
+                }
+            },
+            _ = shutdown_receiver.recv() => {
                 return Ok(());
             }
         };
