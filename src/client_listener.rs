@@ -16,8 +16,8 @@ use std::{
 use tokio::io::AsyncBufRead;
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::net::tcp::OwnedReadHalf;
-use tokio::sync::mpsc::Sender;
 use tokio::sync::broadcast::Receiver;
+use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
 use pin_project_lite::pin_project;
@@ -28,7 +28,7 @@ pub async fn run_listener(
     stream: &mut OwnedReadHalf,
     message_sender: &Sender<ClientToServerMessage>,
     reply_sender: Sender<Reply>,
-    mut shutdown_receiver: Receiver<()>
+    mut shutdown_receiver: Receiver<()>,
 ) -> Result<()> {
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died

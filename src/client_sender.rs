@@ -1,5 +1,5 @@
-use tokio::sync::mpsc;
 use tokio::sync::broadcast;
+use tokio::sync::mpsc;
 
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::OwnedWriteHalf;
@@ -12,7 +12,7 @@ pub async fn run_sender(
     connection_id: &Uuid,
     write_handle: &mut OwnedWriteHalf,
     mut reply_receiver: mpsc::Receiver<Reply>,
-    mut shutdown_receiver: broadcast::Receiver<()>
+    mut shutdown_receiver: broadcast::Receiver<()>,
 ) -> Result<()> {
     let sender_connection_id = connection_id;
 

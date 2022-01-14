@@ -19,7 +19,8 @@ use crate::result::Result;
 pub async fn run_message_handler<T>(
     server_context: &ServerContext,
     receiver_channel: &mut T,
-    mut shutdown_receiver: Receiver<()>) -> Result<()>
+    mut shutdown_receiver: Receiver<()>,
+) -> Result<()>
 where
     T: ReceiverWrapper<ClientToServerMessage>,
 {
@@ -255,7 +256,9 @@ mod tests {
 
         // Act
         let (_shutdown_sender, shutdown_receiver) = mpsc::channel(1);
-        run_message_handler(&context, &mut receiver, shutdown_receiver).await.unwrap();
+        run_message_handler(&context, &mut receiver, shutdown_receiver)
+            .await
+            .unwrap();
 
         // Assert
         assert_eq!(&3, &receiver.receive_count);

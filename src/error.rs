@@ -12,7 +12,7 @@ pub enum Error {
     MessageReadingErrorStreamClosed,
     MessageReadingErrorIoFailure,
     MessageParsingErrorMissingCommand,
-    ErrorAcceptingConnection
+    UnableToBindToPort(u32),
 }
 
 // there isn't an impl for PartialEq for io::Error (probably for good reason)
@@ -59,8 +59,8 @@ impl Display for Error {
             Error::MessageParsingErrorMissingCommand => {
                 write!(f, "Error parsing message, command is missing")
             }
-            Error::ErrorAcceptingConnection => {
-                write!(f, "Error accepting connection")
+            Error::UnableToBindToPort(port) => {
+                write!(f, "Unable to bind server to port {}", port)
             }
         }
     }

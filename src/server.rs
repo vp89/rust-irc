@@ -1,15 +1,23 @@
 use std::time::Duration;
 
-use chrono::{Utc};
-use tokio::{net::TcpListener, sync::{broadcast, mpsc, mpsc::{Receiver}}};
+use chrono::Utc;
+use tokio::{
+    net::TcpListener,
+    sync::{broadcast, mpsc, mpsc::Receiver},
+};
 use uuid::Uuid;
 
-use crate::{ServerContext, message_handler, message_parsing::{ClientToServerMessage, ClientToServerCommand, ReplySender}, client_sender, client_listener, result::{Result}, settings::Settings, error::Error::ErrorAcceptingConnection};
+use crate::{
+    client_listener, client_sender,
+    error::Error::UnableToBindToPort,
+    message_handler,
+    message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender},
+    result::Result,
+    settings::Settings,
+    ServerContext,
+};
 
-pub async fn start_server(
-    settings: &Settings,
-    mut shutdown_receiver: Receiver<()>
-) -> Result<()> {
+pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Result<()> {
     let context = ServerContext {
         start_time: Utc::now(),
         server_host: settings.host.clone(),
@@ -20,7 +28,9 @@ pub async fn start_server(
 
     println!("Starting server on {}:{}", settings.host, settings.port);
 
-    let listener = TcpListener::bind(format!("{}:{}", settings.host, settings.port)).await.map_err(|_| ErrorAcceptingConnection)?;
+    let listener = TcpListener::bind(format!("{}:{}", settings.host, settings.port))
+        .await
+        .map_err(|_| UnableToBindToPort(settings.port))?;
 
     let mut listener_handles = vec![];
     let mut sender_handles = vec![];
@@ -37,7 +47,7 @@ pub async fn start_server(
         if let Err(e) = message_handler::run_message_handler::<Receiver<ClientToServerMessage>>(
             &server_context,
             &mut message_receiver,
-            message_handler_shutdown_receiver
+            message_handler_shutdown_receiver,
         )
         .await
         {
@@ -67,10 +77,10 @@ pub async fn start_server(
         // pass this around in messages to grab details about this connection/user
         let connection_id = Uuid::new_v4();
         let (reply_sender, reply_receiver) = mpsc::channel(1000);
-        
+
         // given to message handler so it can send replies to this client when needed
         let message_handler_reply_sender = reply_sender.clone();
-        
+
         // used to send reply directly from client listener task for pinging loop
         let client_reply_sender = reply_sender.clone();
 
@@ -100,7 +110,7 @@ pub async fn start_server(
                 &connection_id,
                 &mut write_handle,
                 reply_receiver,
-                sender_shutdown_receiver
+                sender_shutdown_receiver,
             )
             .await
             {
@@ -126,7 +136,7 @@ pub async fn start_server(
                 &mut read_handle,
                 &message_sender,
                 client_reply_sender,
-                listener_shutdown_receiver
+                listener_shutdown_receiver,
             )
             .await
             {
@@ -152,7 +162,7 @@ pub async fn start_server(
         }));
     }
 
-    // signal to listeners we are shutting down, then wait all their tasks
+    // signal to listeners we are shutting down, then await all their tasks
     listener_shutdown_sender.send(()).unwrap(); // TODO
 
     for handle in listener_handles {
@@ -163,7 +173,7 @@ pub async fn start_server(
         }
     }
 
-    // signal to senders we are shutting down, then wait all their tasks
+    // signal to senders we are shutting down, then await all their tasks
     sender_shutdown_sender.send(()).unwrap(); // TODO
 
     for handle in sender_handles {
