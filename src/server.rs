@@ -28,8 +28,8 @@ pub async fn start_server(
     let (message_sender, mut message_receiver) = mpsc::channel(1000);
 
     let (message_handler_shutdown_sender, message_handler_shutdown_receiver) = mpsc::channel(1);
-    let (listener_shutdown_sender, _) = broadcast::channel(1000);
-    let (sender_shutdown_sender, _) = broadcast::channel(1000);
+    let (listener_shutdown_sender, _listener_shutdown_receiver) = broadcast::channel(1000);
+    let (sender_shutdown_sender, _sender_shutdown_receiver) = broadcast::channel(1000);
 
     let server_context = context.clone();
 
@@ -55,6 +55,7 @@ pub async fn start_server(
                 }
             },
             _ = shutdown_receiver.recv() => {
+                println!("Received shutdown signal");
                 break;
             }
         };
