@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use tokio::sync::broadcast::Receiver;
+use tokio::sync::mpsc::Receiver;
 use uuid::Uuid;
 
 use crate::{
@@ -16,7 +16,10 @@ use crate::{
 use crate::handlers::who::*;
 use crate::result::Result;
 
-pub async fn run_message_handler<T>(server_context: &ServerContext, receiver_channel: &mut T, mut shutdown_receiver: Receiver<()>) -> Result<()>
+pub async fn run_message_handler<T>(
+    server_context: &ServerContext,
+    receiver_channel: &mut T,
+    mut shutdown_receiver: Receiver<()>) -> Result<()>
 where
     T: ReceiverWrapper<ClientToServerMessage>,
 {
@@ -251,7 +254,8 @@ mod tests {
         };
 
         // Act
-        run_message_handler(&context, &mut receiver).await.unwrap();
+        let (_shutdown_sender, shutdown_receiver) = mpsc::channel(1);
+        run_message_handler(&context, &mut receiver, shutdown_receiver).await.unwrap();
 
         // Assert
         assert_eq!(&3, &receiver.receive_count);

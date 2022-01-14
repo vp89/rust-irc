@@ -8,7 +8,7 @@ use crate::{ServerContext, message_handler, message_parsing::{ClientToServerMess
 
 pub async fn start_server(
     settings: &Settings,
-    mut program_shutdown_receiver: Receiver<()>
+    mut shutdown_receiver: Receiver<()>
 ) -> Result<()> {
     let context = ServerContext {
         start_time: Utc::now(),
@@ -25,17 +25,19 @@ pub async fn start_server(
     let mut listener_handles = vec![];
     let mut sender_handles = vec![];
 
-    let (sender_channel, mut receiver_channel) = mpsc::channel(1000);
-    let server_context = context.clone();
+    let (message_sender, mut message_receiver) = mpsc::channel(1000);
 
-    let (server_shutdown_sender, mut server_shutdown_receiver) = broadcast::channel::<()>(1);
-    let message_handler_shutdown_recv = server_shutdown_sender.subscribe();
+    let (message_handler_shutdown_sender, message_handler_shutdown_receiver) = mpsc::channel(1);
+    let (listener_shutdown_sender, _) = broadcast::channel(1000);
+    let (sender_shutdown_sender, _) = broadcast::channel(1000);
+
+    let server_context = context.clone();
 
     let server_handle = tokio::spawn(async move {
         if let Err(e) = message_handler::run_message_handler::<Receiver<ClientToServerMessage>>(
             &server_context,
-            &mut receiver_channel,
-            message_handler_shutdown_recv
+            &mut message_receiver,
+            message_handler_shutdown_receiver
         )
         .await
         {
@@ -52,33 +54,52 @@ pub async fn start_server(
                     break;
                 }
             },
-            _ = program_shutdown_receiver.recv() => {
-                if let Err(_) = server_shutdown_sender.send(()) {
-                    println!("TODO"); // TODO
-                }
-
+            _ = shutdown_receiver.recv() => {
                 break;
             }
         };
 
         let server_context = context.clone();
-        let cloned_server_sender_channel_listener = sender_channel.clone();
-        let cloned_server_sender_channel_sender = sender_channel.clone();
+
+        let message_sender = message_sender.clone();
 
         // pass this around in messages to grab details about this connection/user
         let connection_id = Uuid::new_v4();
-        let (client_sender_channel, client_receiver_channel) = mpsc::channel(1000);
-        let cloned_client_sender_channel = client_sender_channel.clone();
-        let cloned_client_sender_channel_2 = client_sender_channel.clone();
+        let (reply_sender, reply_receiver) = mpsc::channel(1000);
+        
+        // given to message handler so it can send replies to this client when needed
+        let message_handler_reply_sender = reply_sender.clone();
+        
+        // used to send reply directly from client listener task for pinging loop
+        let client_reply_sender = reply_sender.clone();
 
         let addr = stream.peer_addr().ok();
         let (mut read_handle, mut write_handle) = stream.into_split();
 
+        if let Err(e) = message_sender
+            .send(ClientToServerMessage {
+                source: None,
+                command: ClientToServerCommand::Connected {
+                    sender: ReplySender(message_handler_reply_sender),
+                    client_ip: addr,
+                },
+                connection_id,
+            })
+            .await
+        {
+            println!("Error sending connection initialization message {:?}", e);
+            break; // TODO is this right?
+        };
+
+        let listener_shutdown_receiver = listener_shutdown_sender.subscribe();
+        let sender_shutdown_receiver = sender_shutdown_sender.subscribe();
+
         sender_handles.push(tokio::spawn(async move {
             if let Err(e) = client_sender::run_sender(
-                client_receiver_channel,
-                &mut write_handle,
                 &connection_id,
+                &mut write_handle,
+                reply_receiver,
+                sender_shutdown_receiver
             )
             .await
             {
@@ -98,33 +119,20 @@ pub async fn start_server(
             }
             */
 
-            if let Err(e) = cloned_server_sender_channel_listener
-                .send(ClientToServerMessage {
-                    source: None,
-                    command: ClientToServerCommand::Connected {
-                        sender: ReplySender(cloned_client_sender_channel),
-                        client_ip: addr,
-                    },
-                    connection_id,
-                })
-                .await
-            {
-                println!("Error sending connection initialization message {:?}", e)
-            };
-
             if let Err(e) = client_listener::run_listener(
+                server_context,
                 &connection_id,
                 &mut read_handle,
-                cloned_server_sender_channel_listener,
-                server_context,
-                cloned_client_sender_channel_2,
+                &message_sender,
+                client_reply_sender,
+                listener_shutdown_receiver
             )
             .await
             {
                 println!("Error returned from client listener {:?}", e)
             }
 
-            if let Err(e) = cloned_server_sender_channel_sender
+            if let Err(e) = message_sender
                 .send(ClientToServerMessage {
                     source: None,
                     command: ClientToServerCommand::Disconnected,
@@ -143,6 +151,9 @@ pub async fn start_server(
         }));
     }
 
+    // signal to listeners we are shutting down, then wait all their tasks
+    listener_shutdown_sender.send(()).unwrap(); // TODO
+
     for handle in listener_handles {
         println!("waiting for listener task to finish");
 
@@ -151,6 +162,9 @@ pub async fn start_server(
         }
     }
 
+    // signal to senders we are shutting down, then wait all their tasks
+    sender_shutdown_sender.send(()).unwrap(); // TODO
+
     for handle in sender_handles {
         println!("waiting for sender task to finish");
 
@@ -158,6 +172,10 @@ pub async fn start_server(
             println!("Error joining client sender thread handle {:?}", e);
         }
     }
+
+    // signal to message_handler we are shutting down, then wait
+    // everyone should be disconnected by this point
+    message_handler_shutdown_sender.send(()).await.unwrap(); // TODO
 
     println!("waiting for message handler task to finish");
 

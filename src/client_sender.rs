@@ -1,4 +1,5 @@
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc;
+use tokio::sync::broadcast;
 
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::OwnedWriteHalf;
@@ -8,17 +9,23 @@ use crate::replies::Reply;
 use crate::result::Result;
 
 pub async fn run_sender(
-    mut receiver: Receiver<Reply>,
-    write_handle: &mut OwnedWriteHalf,
     connection_id: &Uuid,
+    write_handle: &mut OwnedWriteHalf,
+    mut reply_receiver: mpsc::Receiver<Reply>,
+    mut shutdown_receiver: broadcast::Receiver<()>
 ) -> Result<()> {
     let sender_connection_id = connection_id;
 
     loop {
-        let received = match receiver.recv().await {
-            Some(r) => r,
-            // TODO RecvError just seems harmless just means channel has been dropped?
-            None => return Ok(()),
+        let received = tokio::select! {
+            received = reply_receiver.recv() => match received {
+                Some(r) => r,
+                // TODO RecvError just seems harmless just means channel has been dropped?
+                None => return Ok(()),
+            },
+            _ = shutdown_receiver.recv() => {
+                return Ok(());
+            }
         };
 
         // The Quit message handler always sends at least 1 message

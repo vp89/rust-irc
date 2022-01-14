@@ -17,16 +17,18 @@ use tokio::io::AsyncBufRead;
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::net::tcp::OwnedReadHalf;
 use tokio::sync::mpsc::Sender;
+use tokio::sync::broadcast::Receiver;
 use uuid::Uuid;
 
 use pin_project_lite::pin_project;
 
 pub async fn run_listener(
+    context: ServerContext,
     connection_id: &Uuid,
     stream: &mut OwnedReadHalf,
-    server_sender: Sender<ClientToServerMessage>,
-    context: ServerContext,
-    client_sender: Sender<Reply>,
+    message_sender: &Sender<ClientToServerMessage>,
+    reply_sender: Sender<Reply>,
+    mut shutdown_receiver: Receiver<()>
 ) -> Result<()> {
     // connection handler just runs a loop that reads bytes off the stream
     // and sends responses based on logic or until the connection has died
@@ -52,7 +54,7 @@ pub async fn run_listener(
 
             waiting_for_pong = true;
 
-            if let Err(e) = client_sender
+            if let Err(e) = reply_sender
                 .send(Reply::Ping {
                     server_host: server_host.clone(),
                 })
@@ -62,14 +64,19 @@ pub async fn run_listener(
             }
         }
 
-        let raw_messages = match get_messages(&mut reader).await {
-            Ok(m) => m,
-            Err(e) => match e {
-                MessageReadingErrorStreamClosed => return Ok(()),
-                _ => {
-                    continue;
-                }
+        let raw_messages = tokio::select! {
+            raw_messages = get_messages(&mut reader) => match raw_messages {
+                Ok(m) => m,
+                Err(e) => match e {
+                    MessageReadingErrorStreamClosed => return Ok(()),
+                    _ => {
+                        continue;
+                    }
+                },
             },
+            _ = shutdown_receiver.recv() => {
+                return Ok(());
+            }
         };
 
         for raw_message in &raw_messages {
@@ -93,14 +100,14 @@ pub async fn run_listener(
                 // down to the server so it can tell other clients of the QUIT and perform
                 // any other necessary shutdown work
                 ClientToServerCommand::Quit { .. } => {
-                    if let Err(e) = server_sender.send(message.clone()).await {
+                    if let Err(e) = message_sender.send(message.clone()).await {
                         println!("Error forwarding message to server {:?}", e);
                     }
 
                     return Ok(());
                 }
                 _ => {
-                    if let Err(e) = server_sender.send(message.clone()).await {
+                    if let Err(e) = message_sender.send(message.clone()).await {
                         println!("Error forwarding message to server {:?}", e);
                     }
                 }
