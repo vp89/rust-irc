@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::replies::Reply;
 use crate::result::Result;
 
-pub async fn run_sender(
+pub async fn run(
     connection_id: &Uuid,
     write_handle: &mut OwnedWriteHalf,
     mut reply_receiver: mpsc::Receiver<Reply>,

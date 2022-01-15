@@ -72,8 +72,6 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
 
         let server_context = context.clone();
 
-        let message_sender = message_sender.clone();
-
         // pass this around in messages to grab details about this connection/user
         let connection_id = Uuid::new_v4();
         let (reply_sender, reply_receiver) = mpsc::channel(1000);
@@ -81,11 +79,7 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
         // given to message handler so it can send replies to this client when needed
         let message_handler_reply_sender = reply_sender.clone();
 
-        // used to send reply directly from client listener task for pinging loop
-        let client_reply_sender = reply_sender.clone();
-
         let addr = stream.peer_addr().ok();
-        let (mut read_handle, mut write_handle) = stream.into_split();
 
         if let Err(e) = message_sender
             .send(ClientToServerMessage {
@@ -102,11 +96,11 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
             break;
         };
 
-        let listener_shutdown_receiver = listener_shutdown_sender.subscribe();
+        let (mut read_handle, mut write_handle) = stream.into_split();
         let sender_shutdown_receiver = sender_shutdown_sender.subscribe();
 
         client_sender_tasks.push(tokio::spawn(async move {
-            if let Err(e) = client_sender::run_sender(
+            if let Err(e) = client_sender::run(
                 &connection_id,
                 &mut write_handle,
                 reply_receiver,
@@ -120,6 +114,14 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
             write_handle.forget();
         }));
 
+        // each client listener gets a message sender so they can forward messages to the message handler
+        let message_sender = message_sender.clone();
+
+        // used to send reply directly from client listener task for pinging loop
+        let client_reply_sender = reply_sender.clone();
+
+        let listener_shutdown_receiver = listener_shutdown_sender.subscribe();
+
         client_listener_tasks.push(tokio::spawn(async move {
             // TODO There is no timeout on the read handle but we need the listener to stop after some seconds
             // figure out an alternate here
@@ -130,7 +132,7 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
             }
             */
 
-            if let Err(e) = client_listener::run_listener(
+            if let Err(e) = client_listener::run(
                 server_context,
                 &connection_id,
                 &mut read_handle,
@@ -143,6 +145,8 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
                 println!("Error returned from client listener {:?}", e)
             }
 
+            // If the client disconnects, we should let the handler know
+            // so that it can clean up and communicate this to other clients
             if let Err(e) = message_sender
                 .send(ClientToServerMessage {
                     source: None,
@@ -162,7 +166,7 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
         }));
     }
 
-    // signal to listeners we are shutting down, then await all their tasks
+    // Signal to listeners we are shutting down, then await all their tasks
     match listener_shutdown_sender.send(()) {
         Ok(_) => {
             for task in client_listener_tasks {
@@ -172,13 +176,16 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
                     println!("Error awaiting client listener task {:?}", e);
                 }
             }
-        },
+        }
         Err(e) => {
-            println!("Error sending shutdown message to client listener tasks {:?}", e);
+            println!(
+                "Error sending shutdown message to client listener tasks {:?}",
+                e
+            );
         }
     }
 
-    // signal to senders we are shutting down, then await all their tasks
+    // Signal to senders we are shutting down, then await all their tasks
     match sender_shutdown_sender.send(()) {
         Ok(_) => {
             for task in client_sender_tasks {
@@ -188,14 +195,16 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
                     println!("Error awaiting client sender task {:?}", e);
                 }
             }
-        },
+        }
         Err(e) => {
-            println!("Error sending shutdown message to client sender tasks {:?}", e);
+            println!(
+                "Error sending shutdown message to client sender tasks {:?}",
+                e
+            );
         }
     }
 
-    // signal to message_handler we are shutting down, then wait
-    // everyone should be disconnected by this point
+    // Signal to message handler we are shutting down, then await it's task
 
     println!("Waiting for message handler task to finish");
 
@@ -203,10 +212,13 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
         Ok(()) => {
             if let Err(e) = message_handler_task.await {
                 println!("Error awaiting message handler task {:?}", e);
-            }                    
-        },
+            }
+        }
         Err(e) => {
-            println!("Error sending shutdown message to message handler task {:?}", e);
+            println!(
+                "Error sending shutdown message to message handler task {:?}",
+                e
+            );
         }
     }
 

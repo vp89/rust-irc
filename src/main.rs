@@ -29,8 +29,7 @@ async fn main() -> io::Result<()> {
     let (server_shutdown_sender, shutdown_receiver) = mpsc::channel::<()>(1);
 
     let server_task = tokio::spawn(async move {
-        if let Err(e) = server::run(&settings, shutdown_receiver).await
-        {
+        if let Err(e) = server::run(&settings, shutdown_receiver).await {
             println!("Error received from server {:?}", e);
         };
     });

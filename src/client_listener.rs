@@ -22,7 +22,7 @@ use uuid::Uuid;
 
 use pin_project_lite::pin_project;
 
-pub async fn run_listener(
+pub async fn run(
     context: ServerContext,
     connection_id: &Uuid,
     stream: &mut OwnedReadHalf,
