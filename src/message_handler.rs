@@ -16,7 +16,7 @@ use crate::{
 use crate::handlers::who::*;
 use crate::result::Result;
 
-pub async fn run_message_handler<T>(
+pub async fn run<T>(
     server_context: &ServerContext,
     receiver_channel: &mut T,
     mut shutdown_receiver: Receiver<()>,

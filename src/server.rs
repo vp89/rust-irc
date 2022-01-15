@@ -17,7 +17,7 @@ use crate::{
     ServerContext,
 };
 
-pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Result<()> {
+pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Result<()> {
     let context = ServerContext {
         start_time: Utc::now(),
         server_host: settings.host.clone(),
@@ -32,8 +32,8 @@ pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<(
         .await
         .map_err(|_| UnableToBindToPort(settings.port))?;
 
-    let mut listener_handles = vec![];
-    let mut sender_handles = vec![];
+    let mut client_listener_tasks = vec![];
+    let mut client_sender_tasks = vec![];
 
     let (message_sender, mut message_receiver) = mpsc::channel(1000);
 
@@ -43,15 +43,15 @@ pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<(
 
     let server_context = context.clone();
 
-    let server_handle = tokio::spawn(async move {
-        if let Err(e) = message_handler::run_message_handler::<Receiver<ClientToServerMessage>>(
+    let message_handler_task = tokio::spawn(async move {
+        if let Err(e) = message_handler::run::<Receiver<ClientToServerMessage>>(
             &server_context,
             &mut message_receiver,
             message_handler_shutdown_receiver,
         )
         .await
         {
-            println!("Error returned from server worker {:?}", e);
+            println!("Error returned from message handler {:?}", e);
         }
     });
 
@@ -65,7 +65,7 @@ pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<(
                 }
             },
             _ = shutdown_receiver.recv() => {
-                println!("Received shutdown signal");
+                println!("Server received shutdown signal");
                 break;
             }
         };
@@ -99,13 +99,13 @@ pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<(
             .await
         {
             println!("Error sending connection initialization message {:?}", e);
-            break; // TODO is this right?
+            break;
         };
 
         let listener_shutdown_receiver = listener_shutdown_sender.subscribe();
         let sender_shutdown_receiver = sender_shutdown_sender.subscribe();
 
-        sender_handles.push(tokio::spawn(async move {
+        client_sender_tasks.push(tokio::spawn(async move {
             if let Err(e) = client_sender::run_sender(
                 &connection_id,
                 &mut write_handle,
@@ -120,7 +120,7 @@ pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<(
             write_handle.forget();
         }));
 
-        listener_handles.push(tokio::spawn(async move {
+        client_listener_tasks.push(tokio::spawn(async move {
             // TODO There is no timeout on the read handle but we need the listener to stop after some seconds
             // figure out an alternate here
             /*
@@ -163,35 +163,51 @@ pub async fn start_server(settings: &Settings, mut shutdown_receiver: Receiver<(
     }
 
     // signal to listeners we are shutting down, then await all their tasks
-    listener_shutdown_sender.send(()).unwrap(); // TODO
+    match listener_shutdown_sender.send(()) {
+        Ok(_) => {
+            for task in client_listener_tasks {
+                println!("Waiting for client listener task to finish");
 
-    for handle in listener_handles {
-        println!("waiting for listener task to finish");
-
-        if let Err(e) = handle.await {
-            println!("Error joining client listener thread handle {:?}", e);
+                if let Err(e) = task.await {
+                    println!("Error awaiting client listener task {:?}", e);
+                }
+            }
+        },
+        Err(e) => {
+            println!("Error sending shutdown message to client listener tasks {:?}", e);
         }
     }
 
     // signal to senders we are shutting down, then await all their tasks
-    sender_shutdown_sender.send(()).unwrap(); // TODO
+    match sender_shutdown_sender.send(()) {
+        Ok(_) => {
+            for task in client_sender_tasks {
+                println!("Waiting for client sender task to finish");
 
-    for handle in sender_handles {
-        println!("waiting for sender task to finish");
-
-        if let Err(e) = handle.await {
-            println!("Error joining client sender thread handle {:?}", e);
+                if let Err(e) = task.await {
+                    println!("Error awaiting client sender task {:?}", e);
+                }
+            }
+        },
+        Err(e) => {
+            println!("Error sending shutdown message to client sender tasks {:?}", e);
         }
     }
 
     // signal to message_handler we are shutting down, then wait
     // everyone should be disconnected by this point
-    message_handler_shutdown_sender.send(()).await.unwrap(); // TODO
 
-    println!("waiting for message handler task to finish");
+    println!("Waiting for message handler task to finish");
 
-    if let Err(e) = server_handle.await {
-        println!("Error joining server thread handle {:?}", e);
+    match message_handler_shutdown_sender.send(()).await {
+        Ok(()) => {
+            if let Err(e) = message_handler_task.await {
+                println!("Error awaiting message handler task {:?}", e);
+            }                    
+        },
+        Err(e) => {
+            println!("Error sending shutdown message to message handler task {:?}", e);
+        }
     }
 
     Ok(())

@@ -28,12 +28,10 @@ async fn main() -> io::Result<()> {
     let settings = Settings::new().unwrap();
     let (server_shutdown_sender, shutdown_receiver) = mpsc::channel::<()>(1);
 
-    let server_handle = tokio::spawn(async move {
-        if server::start_server(&settings, shutdown_receiver)
-            .await
-            .is_err()
+    let server_task = tokio::spawn(async move {
+        if let Err(e) = server::run(&settings, shutdown_receiver).await
         {
-            println!("TODO TODO TODO");
+            println!("Error received from server {:?}", e);
         };
     });
 
@@ -45,11 +43,12 @@ async fn main() -> io::Result<()> {
     }
 
     println!("Sending shutdown signal");
+
     if server_shutdown_sender.send(()).await.is_err() {
         println!("Unable to propagate shutdown signal to the rest of the program");
     }
 
-    server_handle.await?;
+    server_task.await?;
 
     Ok(())
 }
