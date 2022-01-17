@@ -11,7 +11,7 @@ use crate::{
     client_listener, client_sender,
     error::Error::UnableToBindToPort,
     message_handler,
-    message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender},
+    message_parsing::{Command, Message, ReplySender},
     result::Result,
     settings::Settings,
     ServerContext,
@@ -44,7 +44,7 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
     let server_context = context.clone();
 
     let message_handler_task = tokio::spawn(async move {
-        if let Err(e) = message_handler::run::<Receiver<ClientToServerMessage>>(
+        if let Err(e) = message_handler::run::<Receiver<Message>>(
             &server_context,
             &mut message_receiver,
             message_handler_shutdown_receiver,
@@ -82,9 +82,9 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
         let addr = stream.peer_addr().ok();
 
         if let Err(e) = message_sender
-            .send(ClientToServerMessage {
+            .send(Message {
                 source: None,
-                command: ClientToServerCommand::Connected {
+                command: Command::Connected {
                     sender: ReplySender(message_handler_reply_sender),
                     client_ip: addr,
                 },
@@ -148,9 +148,9 @@ pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Re
             // If the client disconnects, we should let the handler know
             // so that it can clean up and communicate this to other clients
             if let Err(e) = message_sender
-                .send(ClientToServerMessage {
+                .send(Message {
                     source: None,
-                    command: ClientToServerCommand::Disconnected,
+                    command: Command::Disconnected,
                     connection_id,
                 })
                 .await

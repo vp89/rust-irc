@@ -8,7 +8,7 @@ use crate::{
         join::handle_join, mode::handle_mode, nick::handle_nick, part::handle_part,
         ping::handle_ping, privmsg::handle_privmsg, quit::handle_quit, user::handle_user,
     },
-    message_parsing::{ClientToServerCommand, ClientToServerMessage, ReplySender},
+    message_parsing::{Command, Message, ReplySender},
     replies::Reply,
     ChannelContext, ConnectionContext, ServerContext,
 };
@@ -22,7 +22,7 @@ pub async fn run<T>(
     mut shutdown_receiver: Receiver<()>,
 ) -> Result<()>
 where
-    T: ReceiverWrapper<ClientToServerMessage>,
+    T: ReceiverWrapper<Message>,
 {
     let mut connections = HashMap::new();
     let mut sender_channels = HashMap::new();
@@ -47,7 +47,7 @@ where
         // and thus the only one where there is no connection context available.
         // We can handle it here instead of in the match below so that the rest of the
         // commands can just deal with a ConnectionContext instead of an Option<ConnectionContext>
-        if let ClientToServerCommand::Connected { sender, client_ip } = &received.command {
+        if let Command::Connected { sender, client_ip } = &received.command {
             let ctx = ConnectionContext {
                 connection_id: received.connection_id,
                 nick: None,
@@ -78,7 +78,7 @@ where
         let ctx_nick = conn_context.nick.as_ref().unwrap_or(empty_str);
 
         let replies = match &received.command {
-            ClientToServerCommand::Disconnected => {
+            Command::Disconnected => {
                 if connections.remove(&received.connection_id).is_none() {
                     println!(
                         "Disconnected connection {} already removed",
@@ -95,7 +95,7 @@ where
 
                 None
             }
-            ClientToServerCommand::User {
+            Command::User {
                 user,
                 mode: _,
                 realname,
@@ -109,7 +109,7 @@ where
 
                 handle_user(&server_host, user, realname, conn_context)
             }
-            ClientToServerCommand::Nick { nick, .. } => {
+            Command::Nick { nick, .. } => {
                 let conn_context = match connections.get_mut(&received.connection_id) {
                     Some(c) => c,
                     None => {
@@ -126,7 +126,7 @@ where
                     conn_context,
                 )
             }
-            ClientToServerCommand::Join { channels_to_join } => handle_join(
+            Command::Join { channels_to_join } => handle_join(
                 &server_host,
                 ctx_nick,
                 ctx_client,
@@ -135,7 +135,7 @@ where
                 &connections,
                 channels_to_join,
             ),
-            ClientToServerCommand::Part { channels_to_leave } => handle_part(
+            Command::Part { channels_to_leave } => handle_part(
                 &server_host,
                 ctx_nick,
                 ctx_client,
@@ -143,10 +143,10 @@ where
                 &mut channels,
                 channels_to_leave,
             ),
-            ClientToServerCommand::Mode { channel } => {
+            Command::Mode { channel } => {
                 handle_mode(&server_host, ctx_nick, channel, conn_context)
             }
-            ClientToServerCommand::Who { mask, .. } => handle_who(
+            Command::Who { mask, .. } => handle_who(
                 mask,
                 &server_host,
                 ctx_nick,
@@ -154,7 +154,7 @@ where
                 &connections,
                 conn_context,
             ),
-            ClientToServerCommand::PrivMsg { channel, message } => handle_privmsg(
+            Command::PrivMsg { channel, message } => handle_privmsg(
                 &server_host,
                 ctx_nick,
                 channel,
@@ -163,15 +163,15 @@ where
                 &channels,
                 &connections,
             ),
-            ClientToServerCommand::Quit { message } => {
+            Command::Quit { message } => {
                 handle_quit(message, &mut channels, &connections, received.connection_id)
             }
-            ClientToServerCommand::Connected { .. } => None,
-            ClientToServerCommand::Unhandled { .. } => None,
-            ClientToServerCommand::Ping { token } => {
+            Command::Connected { .. } => None,
+            Command::Unhandled { .. } => None,
+            Command::Ping { token } => {
                 handle_ping(&server_host, ctx_nick, token, conn_context)
             }
-            ClientToServerCommand::Pong {} => None,
+            Command::Pong {} => None,
         };
 
         if let Some(replies) = replies {
@@ -221,9 +221,9 @@ mod tests {
         let connection_id = Uuid::new_v4();
 
         let mut messages = VecDeque::new();
-        messages.push_back(ClientToServerMessage {
+        messages.push_back(Message {
             source: None,
-            command: ClientToServerCommand::Connected {
+            command: Command::Connected {
                 sender: ReplySender(sender),
                 client_ip: Some(SocketAddr::V4(SocketAddrV4::new(
                     Ipv4Addr::new(127, 0, 0, 1),
@@ -233,9 +233,9 @@ mod tests {
             connection_id,
         });
 
-        messages.push_back(ClientToServerMessage {
+        messages.push_back(Message {
             source: None,
-            command: ClientToServerCommand::Nick {
+            command: Command::Nick {
                 nick: Some("JOE".to_string()),
             },
             connection_id,

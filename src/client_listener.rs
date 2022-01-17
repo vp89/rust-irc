@@ -2,7 +2,7 @@ use crate::error::Error::*;
 use crate::replies::Reply;
 use crate::result::Result;
 use crate::{
-    message_parsing::{ClientToServerCommand, ClientToServerMessage},
+    message_parsing::{Command, Message},
     ServerContext,
 };
 
@@ -26,7 +26,7 @@ pub async fn run(
     context: ServerContext,
     connection_id: &Uuid,
     stream: &mut OwnedReadHalf,
-    message_sender: &Sender<ClientToServerMessage>,
+    message_sender: &Sender<Message>,
     reply_sender: Sender<Reply>,
     mut shutdown_receiver: Receiver<()>,
 ) -> Result<()> {
@@ -80,7 +80,7 @@ pub async fn run(
         };
 
         for raw_message in &raw_messages {
-            let message = match ClientToServerMessage::from_str(raw_message, *connection_id) {
+            let message = match Message::from_str(raw_message, *connection_id) {
                 Ok(m) => m,
                 Err(e) => {
                     println!("{}", e);
@@ -89,17 +89,17 @@ pub async fn run(
             };
 
             match &message.command {
-                ClientToServerCommand::Unhandled => {
+                Command::Unhandled => {
                     println!("Unhandled message received {:?} {}", message, raw_message);
                 }
-                ClientToServerCommand::Pong => {
+                Command::Pong => {
                     last_pong = Instant::now();
                     waiting_for_pong = false;
                 }
                 // If client is quitting, stop this thread but before that pass the message
                 // down to the server so it can tell other clients of the QUIT and perform
                 // any other necessary shutdown work
-                ClientToServerCommand::Quit { .. } => {
+                Command::Quit { .. } => {
                     if let Err(e) = message_sender.send(message.clone()).await {
                         println!("Error forwarding message to server {:?}", e);
                     }
