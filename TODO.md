@@ -13,8 +13,6 @@
 - Verify that threads/sockets are not leaking, ie. connections are fully shutdown even when QUIT not received
 
 ## Efficiency
-- Look at async to keep thread usage down (currently 2+2N where N is # of connections)
-
 
 ## Error handling
 
@@ -22,4 +20,3 @@
 - Read up on best practices RE: structuring modules and refactor accordingly 
 
 ## Configurability
-- Make MOTD configurable
