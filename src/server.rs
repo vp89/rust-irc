@@ -9,12 +9,12 @@ use uuid::Uuid;
 
 use crate::{
     client_listener, client_sender,
+    context::ServerContext,
     error::Error::UnableToBindToPort,
     message_handler,
     message_parsing::{Command, Message, ReplySender},
     result::Result,
     settings::Settings,
-    ServerContext,
 };
 
 pub async fn run(settings: &Settings, mut shutdown_receiver: Receiver<()>) -> Result<()> {

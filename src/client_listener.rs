@@ -2,16 +2,16 @@ use crate::error::Error::*;
 use crate::replies::Reply;
 use crate::result::Result;
 use crate::{
+    context::ServerContext,
     message_parsing::{Command, Message},
-    ServerContext,
 };
 
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Instant;
 use std::{
     collections::VecDeque,
     io::{self, ErrorKind},
-    time::Instant,
 };
 use tokio::io::AsyncBufRead;
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};

@@ -6,7 +6,10 @@ use std::{
 use chrono::Utc;
 use uuid::Uuid;
 
-use crate::{replies::Reply, ChannelContext, ConnectionContext};
+use crate::{
+    context::{ChannelContext, ConnectionContext},
+    replies::Reply,
+};
 
 pub fn handle_join(
     server_host: &str,

@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::{replies::Reply, ChannelContext, ConnectionContext};
+use crate::{
+    context::{ChannelContext, ConnectionContext},
+    replies::Reply,
+};
 
 pub fn handle_quit(
     message: &Option<String>,

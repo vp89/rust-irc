@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{replies::Reply, ConnectionContext, ServerContext};
+use crate::{
+    context::{ConnectionContext, ServerContext},
+    replies::Reply,
+};
 
 pub fn handle_nick(
     server_context: &ServerContext,

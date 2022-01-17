@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::Utc;
 use uuid::Uuid;
 
-use crate::{replies::Reply, ConnectionContext};
+use crate::{context::ConnectionContext, replies::Reply};
 
 pub fn handle_mode(
     server_host: &str,

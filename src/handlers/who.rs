@@ -1,4 +1,8 @@
-use crate::{replies::Reply, util, ChannelContext, ConnectionContext};
+use crate::{
+    context::{ChannelContext, ConnectionContext},
+    replies::Reply,
+    util,
+};
 use std::{
     collections::{HashMap, HashSet},
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},

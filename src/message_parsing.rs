@@ -206,8 +206,8 @@ mod tests {
             expected_nick
         );
 
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid prefix");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid prefix");
         let actual_source = message.source;
         let actual_command = message.command;
         assert_eq!(expected_message.source, actual_source);
@@ -226,8 +226,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("NICK {}", expected_nick);
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid prefix");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid prefix");
         let actual_command = message.command;
         assert_eq!(expected_message.command, actual_command);
     }
@@ -244,8 +244,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("nick {}", expected_nick);
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid prefix");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid prefix");
         let actual_command = message.command;
         assert_eq!(expected_message.command, actual_command);
     }
@@ -262,8 +262,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("JOIN {}", expected_channel);
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 
@@ -283,8 +283,8 @@ mod tests {
         };
 
         let raw_str = &format!("JOIN {}", expected_channels.join(","));
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 
@@ -300,8 +300,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("WHO");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 
@@ -317,8 +317,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("WHO #heythere");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 
@@ -334,8 +334,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("WHO #heythere o");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 
@@ -351,8 +351,8 @@ mod tests {
             connection_id,
         };
         let raw_str = &format!("PRIVMSG #blah :HI. THERE? HELLO!");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         assert_eq!(expected_message.command, message.command);
     }
 
@@ -360,8 +360,8 @@ mod tests {
     fn message_parsing_privmsg_channel_missing_returns_none() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PRIVMSG");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         let expected = Message {
             source: None,
             command: Command::PrivMsg {
@@ -377,8 +377,8 @@ mod tests {
     fn message_parsing_privmsg_channel_missing_hash_errors() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PRIVMSG :foo");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         let expected = Message {
             source: None,
             command: Command::PrivMsg {
@@ -394,8 +394,8 @@ mod tests {
     #[test_case("PRIVMSG #hey " ; "_trailing_space_errors")]
     fn message_parsing_privmsg_message_missing_channel_is_returned(raw_str: &str) {
         let connection_id = Uuid::new_v4();
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         let expected = Message {
             source: None,
             command: Command::PrivMsg {
@@ -412,8 +412,8 @@ mod tests {
     fn message_parsing_part_missing_channels() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PART");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         let expected = Message {
             source: None,
             command: Command::Part {
@@ -428,8 +428,8 @@ mod tests {
     fn message_parsing_part_single_channel_parses_correctly() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PART #foo");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         let expected = Message {
             source: None,
             command: Command::Part {
@@ -445,8 +445,8 @@ mod tests {
     fn message_parsing_part_multiple_channels_parses_correctly() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PART #foo,#bar,#baz");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         let expected = Message {
             source: None,
             command: Command::Part {
@@ -466,8 +466,8 @@ mod tests {
     fn message_parsing_ping_token_provided_parses_correctly() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PING :foobar");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         let expected = Message {
             source: None,
             command: Command::Ping {
@@ -483,8 +483,8 @@ mod tests {
     fn message_parsing_ping_empty_token_colon_parses_correctly() {
         let connection_id = Uuid::new_v4();
         let raw_str = &format!("PING :");
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         let expected = Message {
             source: None,
             command: Command::Ping {
@@ -500,8 +500,8 @@ mod tests {
     #[test_case("PING " ; "ping_with_trailing_space")]
     fn message_parsing_ping_missing_token_is_none(raw_str: &str) {
         let connection_id = Uuid::new_v4();
-        let message = Message::from_str(raw_str, connection_id)
-            .expect("Failed to parse valid message");
+        let message =
+            Message::from_str(raw_str, connection_id).expect("Failed to parse valid message");
         let expected = Message {
             source: None,
             command: Command::Ping { token: None },

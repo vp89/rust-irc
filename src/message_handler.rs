@@ -4,13 +4,13 @@ use uuid::Uuid;
 
 use crate::{
     channels::ReceiverWrapper,
+    context::{ChannelContext, ConnectionContext, ServerContext},
     handlers::{
         join::handle_join, mode::handle_mode, nick::handle_nick, part::handle_part,
         ping::handle_ping, privmsg::handle_privmsg, quit::handle_quit, user::handle_user,
     },
     message_parsing::{Command, Message, ReplySender},
     replies::Reply,
-    ChannelContext, ConnectionContext, ServerContext,
 };
 
 use crate::handlers::who::*;
@@ -143,9 +143,7 @@ where
                 &mut channels,
                 channels_to_leave,
             ),
-            Command::Mode { channel } => {
-                handle_mode(&server_host, ctx_nick, channel, conn_context)
-            }
+            Command::Mode { channel } => handle_mode(&server_host, ctx_nick, channel, conn_context),
             Command::Who { mask, .. } => handle_who(
                 mask,
                 &server_host,
@@ -168,9 +166,7 @@ where
             }
             Command::Connected { .. } => None,
             Command::Unhandled { .. } => None,
-            Command::Ping { token } => {
-                handle_ping(&server_host, ctx_nick, token, conn_context)
-            }
+            Command::Ping { token } => handle_ping(&server_host, ctx_nick, token, conn_context),
             Command::Pong {} => None,
         };
 

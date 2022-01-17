@@ -1,6 +1,7 @@
 mod channels;
 mod client_listener;
 mod client_sender;
+mod context;
 mod error;
 mod handlers;
 mod message_handler;
@@ -11,17 +12,12 @@ mod server;
 mod settings;
 mod util;
 
-use chrono::{DateTime, Utc};
 use settings::Settings;
-use std::collections::HashSet;
 use std::io;
-use std::net::SocketAddr;
-use std::time::Duration;
 use tokio::{
     signal,
     sync::mpsc::{self},
 };
-use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
@@ -50,27 +46,4 @@ async fn main() -> io::Result<()> {
     server_task.await?;
 
     Ok(())
-}
-
-#[derive(Clone)]
-pub struct ServerContext {
-    pub start_time: DateTime<Utc>,
-    pub server_host: String,
-    pub version: String,
-    pub ping_frequency: Duration,
-    pub motd_lines: Vec<String>,
-}
-
-#[derive(Default)]
-pub struct ConnectionContext {
-    pub connection_id: Uuid,
-    pub client: Option<String>,
-    pub nick: Option<String>,
-    pub user: Option<String>,
-    pub real_name: Option<String>,
-    pub client_host: Option<SocketAddr>,
-}
-
-pub struct ChannelContext {
-    members: HashSet<Uuid>,
 }

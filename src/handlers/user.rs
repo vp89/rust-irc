@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use uuid::Uuid;
 
-use crate::{replies::Reply, ConnectionContext};
+use crate::{context::ConnectionContext, replies::Reply};
 
 pub fn handle_user(
     server_host: &str,
