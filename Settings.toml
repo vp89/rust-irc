@@ -1,4 +1,4 @@
-host = "localhost"
+host = "0.0.0.0"
 port = 6667
 ping_frequency_secs = 60
 motd_lines = ["Line 1", "Line 2", "Line 3"]
